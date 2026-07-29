@@ -175,19 +175,68 @@ export function FingerDrawingCanvas({ initialDataUrl, baseColor, onSave }: Finge
     <div className="flex flex-col gap-4 items-center w-full max-w-sm mx-auto h-full">
       <div 
         ref={containerRef}
-        className="relative w-full aspect-[2/3] max-w-[320px] max-h-[480px] bg-white rounded-[40px] shadow-sm border overflow-hidden flex-shrink-0"
+        className="relative w-full aspect-[2/3] max-w-[320px] max-h-[480px] bg-[#F8F4EE] rounded-3xl shadow-sm border border-border overflow-hidden flex-shrink-0"
         style={{ touchAction: 'none' }}
       >
-        {/* Background Silhouette SVG */}
-        <svg 
-          viewBox="0 0 100 320" 
-          preserveAspectRatio="none" 
+        {/* Background Finger Silhouette SVG — canvas coords 320×480 */}
+        <svg
+          viewBox="0 0 320 480"
+          xmlns="http://www.w3.org/2000/svg"
           className="absolute inset-0 w-full h-full pointer-events-none"
+          preserveAspectRatio="xMidYMid meet"
         >
-          <path 
-            d="M 50 30 C 20 30 5 50 5 90 L 5 260 C 5 280 20 300 50 300 C 80 300 95 280 95 260 L 95 90 C 95 50 80 30 50 30 Z" 
-            fill={baseColor || '#F5F5F5'}
+          {/* Finger body */}
+          <path
+            d="M 160 446 C 108 442 86 412 86 366 C 86 290 87 198 100 118 C 110 57 132 36 160 34 C 188 36 210 57 220 118 C 233 198 234 290 234 366 C 234 412 212 442 160 446 Z"
+            fill={baseColor || '#FDDDB8'}
+            stroke="#D4A070"
+            strokeWidth="2.5"
+            strokeLinejoin="round"
             className="transition-colors duration-300"
+          />
+          {/* Fingernail */}
+          <path
+            d="M 136 54 C 136 36 147 34 160 34 C 173 34 184 36 184 54 C 184 68 174 78 160 78 C 146 78 136 68 136 54 Z"
+            fill="#F5E6CC"
+            stroke="#C49060"
+            strokeWidth="1.5"
+            opacity="0.75"
+          />
+          {/* Nail groove */}
+          <path
+            d="M 142 72 Q 160 76 178 72"
+            fill="none"
+            stroke="#C49060"
+            strokeWidth="1"
+            strokeLinecap="round"
+            opacity="0.4"
+          />
+          {/* Upper knuckle */}
+          <path
+            d="M 90 228 Q 160 220 230 228"
+            fill="none"
+            stroke="#C49060"
+            strokeWidth="1.4"
+            strokeLinecap="round"
+            opacity="0.35"
+          />
+          {/* Lower knuckle */}
+          <path
+            d="M 88 338 Q 160 330 232 338"
+            fill="none"
+            stroke="#C49060"
+            strokeWidth="1.4"
+            strokeLinecap="round"
+            opacity="0.35"
+          />
+          {/* Base hint */}
+          <path
+            d="M 88 410 Q 160 418 232 410"
+            fill="none"
+            stroke="#C49060"
+            strokeWidth="1"
+            strokeLinecap="round"
+            opacity="0.25"
           />
         </svg>
         

@@ -11,7 +11,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useToast } from '@/hooks/use-toast';
 
 const FINGER_NAMES = {
-  1: '엄지', 2: '검지', 3: '중지', 4: '약지', 5: '새끼'
+  1: '엄지', 2: '검지', 3: '중지', 4: '약지', 5: '소지'
 };
 
 export default function CharacterEditor() {
