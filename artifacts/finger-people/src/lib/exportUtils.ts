@@ -1,10 +1,12 @@
-import { toPng } from 'html-to-image';
+import { getFontEmbedCSS, toPng } from 'html-to-image';
 import jsPDF from 'jspdf';
 
-/** Rendering the DOM twice warms the webfont/image cache and avoids blank first frames. */
+let fontEmbedCSS: string | undefined;
+
+/** Render once and reuse embedded font CSS; the old warm-up render doubled every wait. */
 async function render(element: HTMLElement) {
-  const options = { pixelRatio: 2, backgroundColor: '#ffffff', cacheBust: true };
-  await toPng(element, options);
+  fontEmbedCSS ??= await getFontEmbedCSS(element);
+  const options = { pixelRatio: 2, backgroundColor: '#ffffff', cacheBust: false, fontEmbedCSS };
   return toPng(element, options);
 }
 
