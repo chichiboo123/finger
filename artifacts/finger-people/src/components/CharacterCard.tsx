@@ -1,5 +1,6 @@
 import { Character } from "@/lib/db";
 import { MaterialIcon } from "./MaterialIcon";
+import { FingerSilhouette, FINGER_BOX } from "./FingerSilhouette";
 import { getContrastColor, cn } from "@/lib/utils";
 
 interface CharacterCardProps {
@@ -36,20 +37,31 @@ export function CharacterCard({
     >
       {/* Top: Visual (Color + Drawing) — scales with the card width */}
       <div
-        className="aspect-[4/3] w-full relative flex items-center justify-center p-4 border-b"
+        className="aspect-square w-full relative flex items-center justify-center overflow-hidden p-4 border-b"
         style={{ backgroundColor: character.color || '#F5F5F5' }}
       >
         <div className="absolute inset-0 opacity-10 bg-[radial-gradient(circle_at_center,_var(--tw-gradient-stops))] from-white to-transparent" />
-        
+
+        {/* The finger travels with the drawing: the card shows exactly what the
+            child saw on the drawing screen, silhouette included. */}
         {character.drawingDataUrl ? (
-          <img 
-            src={character.drawingDataUrl} 
-            alt={character.name} 
-            className="h-[120%] w-auto max-w-full object-contain relative z-10 filter drop-shadow-lg scale-110 translate-y-4"
-          />
+          <div className="relative z-10 h-[92%] drop-shadow-lg" style={{ aspectRatio: `${FINGER_BOX.w} / ${FINGER_BOX.h}` }}>
+            <FingerSilhouette
+              baseColor={character.color}
+              className="absolute inset-0 h-full w-full"
+            />
+            <img
+              src={character.drawingDataUrl}
+              alt={`${character.name} 그림`}
+              className="absolute inset-0 h-full w-full object-contain"
+            />
+          </div>
         ) : (
-          <div className="w-24 h-24 rounded-full bg-white/30 backdrop-blur-sm flex items-center justify-center">
-            <MaterialIcon name="face" className="text-5xl text-white drop-shadow-md" />
+          <div className="relative z-10 h-[92%] opacity-70" style={{ aspectRatio: `${FINGER_BOX.w} / ${FINGER_BOX.h}` }}>
+            <FingerSilhouette
+              baseColor={character.color}
+              className="absolute inset-0 h-full w-full"
+            />
           </div>
         )}
 

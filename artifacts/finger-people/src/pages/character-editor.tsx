@@ -8,7 +8,9 @@ import { AutoSaveStatus, SaveState } from '@/components/AutoSaveStatus';
 import { Button } from '@/components/ui/button';
 import { MaterialIcon } from '@/components/MaterialIcon';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { CompletionDialog } from '@/components/CompletionDialog';
 import { useToast } from '@/hooks/use-toast';
+import { useIsMobile } from '@/hooks/use-mobile';
 
 const FINGER_NAMES = {
   1: '엄지', 2: '검지', 3: '중지', 4: '약지', 5: '소지'
@@ -18,12 +20,14 @@ export default function CharacterEditor() {
   const { id } = useParams<{ id: string }>();
   const [location, setLocation] = useLocation();
   const { characters, saveCharacter, isLoading } = useCharacters();
+  const isMobile = useIsMobile();
   const { toast } = useToast();
   
   const [charData, setCharData] = useState<Character | null>(null);
   const [saveStatus, setSaveStatus] = useState<SaveState>('saved');
   // Controlled so validation can pull the child back to the tab that needs input.
   const [mobileTab, setMobileTab] = useState<'drawing' | 'info'>('info');
+  const [completionOpen, setCompletionOpen] = useState(false);
 
   const lastSavedData = useRef<Character | null>(null);
   const initializedId = useRef<string | null>(null);
@@ -132,12 +136,8 @@ export default function CharacterEditor() {
       setCharData(finalData);
       setSaveStatus('saved');
       
-      toast({
-        title: "완성!",
-        description: "멋진 핑거피플이 탄생했어요. 인물 카드 갤러리로 이동할게요.",
-      });
-
-      setTimeout(() => setLocation('/cards'), 1500);
+      // Let the child pick what happens next instead of yanking them away.
+      setCompletionOpen(true);
     } catch (e) {
       setSaveStatus('error');
       toast({
@@ -148,24 +148,45 @@ export default function CharacterEditor() {
     }
   };
 
+  // Anatomical order across both hands. The right hand is always available;
+  // the left hand only joins the rotation once it holds a character.
+  const ALL_IDS = [
+    'left-5', 'left-4', 'left-3', 'left-2', 'left-1',
+    'right-1', 'right-2', 'right-3', 'right-4', 'right-5',
+  ];
+  const leftInUse = characters.some(c => c.hand === 'left');
+  const activeIds = ALL_IDS.filter(
+    id => leftInUse || id.startsWith('right-') || id === charData?.id,
+  );
+
   const navigateFinger = (dir: 1 | -1) => {
     if (!charData) return;
-
-    // Anatomical order across both hands. The right hand is always available;
-    // the left hand only joins the rotation once it holds a character.
-    const ALL_IDS = [
-      'left-5', 'left-4', 'left-3', 'left-2', 'left-1',
-      'right-1', 'right-2', 'right-3', 'right-4', 'right-5',
-    ];
-    const leftInUse = characters.some(c => c.hand === 'left');
-    const ids = ALL_IDS.filter(id => leftInUse || id.startsWith('right-') || id === charData.id);
-
-    const currentIndex = ids.indexOf(charData.id);
+    const currentIndex = activeIds.indexOf(charData.id);
     if (currentIndex === -1) return;
-
-    const nextIndex = (currentIndex + dir + ids.length) % ids.length;
-    setLocation(`/character/${ids[nextIndex]}`);
+    const nextIndex = (currentIndex + dir + activeIds.length) % activeIds.length;
+    setLocation(`/character/${activeIds[nextIndex]}`);
   };
+
+  const describeFinger = (id: string) => {
+    const [hand, index] = id.split('-');
+    const finger = FINGER_NAMES[Number(index) as keyof typeof FINGER_NAMES];
+    return `${hand === 'left' ? '왼손' : '오른손'} ${finger}`;
+  };
+
+  // Starting from the finger just completed, the next slot with nothing in it.
+  const nextEmptyId = (() => {
+    if (!charData) return undefined;
+    const start = activeIds.indexOf(charData.id);
+    for (let i = 1; i <= activeIds.length; i++) {
+      const id = activeIds[(start + i) % activeIds.length];
+      if (!characters.find(c => c.id === id)?.name.trim()) return id;
+    }
+    return undefined;
+  })();
+
+  const completedCount = characters.filter(
+    c => c.isCompleted && activeIds.includes(c.id),
+  ).length;
 
   if (isLoading || !charData) {
     return (
@@ -189,8 +210,8 @@ export default function CharacterEditor() {
             </Button>
           </Link>
           <div className="flex flex-col">
-            <span className="text-sm font-bold flex items-center gap-1">
-              <span className="text-muted-foreground font-medium text-xs">{handLabel}</span>
+            <span className="flex items-center gap-1 whitespace-nowrap text-sm font-bold">
+              <span className="text-xs font-medium text-muted-foreground">{handLabel}</span>
               {charData.fingerName}
             </span>
           </div>
@@ -216,8 +237,11 @@ export default function CharacterEditor() {
       {/* Editor Content - Responsive Layout */}
       <div className="flex-1 overflow-hidden flex flex-col md:flex-row bg-muted/10">
         
-        {/* Mobile Tabs */}
-        <div className="md:hidden flex-1 overflow-hidden flex flex-col">
+        {/* One layout at a time. Rendering both and hiding one with CSS mounted
+            two drawing canvases, so the floating tool button appeared twice and
+            two undo stacks fought over the same character. */}
+        {isMobile ? (
+        <div className="flex flex-1 flex-col overflow-hidden">
           <Tabs
             value={mobileTab}
             onValueChange={(v) => setMobileTab(v as 'drawing' | 'info')}
@@ -231,7 +255,8 @@ export default function CharacterEditor() {
             </div>
             
             <div className="flex-1 overflow-hidden relative">
-              <TabsContent value="drawing" className="absolute inset-0 m-0 p-4 overflow-y-auto overflow-x-hidden data-[state=active]:flex flex-col items-center">
+              {/* pb leaves room for the floating tool button */}
+              <TabsContent value="drawing" className="absolute inset-0 m-0 flex-col items-center overflow-hidden p-4 pb-24 data-[state=active]:flex sm:pb-4">
                 <FingerDrawingCanvas
                   key={charData.id}
                   initialDataUrl={charData.drawingDataUrl}
@@ -241,13 +266,22 @@ export default function CharacterEditor() {
               </TabsContent>
               <TabsContent value="info" className="absolute inset-0 m-0 p-4 overflow-y-auto data-[state=active]:block">
                 <CharacterForm data={charData} onChange={handleFormChange} />
+                {/* Makes the order explicit: describe the character, then draw it. */}
+                <Button
+                  onClick={() => setMobileTab('drawing')}
+                  variant="outline"
+                  className="mx-auto mt-4 flex h-12 w-full max-w-lg rounded-full border-primary/30 text-base font-bold text-primary"
+                >
+                  <MaterialIcon name="draw" className="mr-2" />
+                  다음: 모습 그리기
+                </Button>
               </TabsContent>
             </div>
           </Tabs>
         </div>
-
-        {/* Desktop Split View */}
-        <div className="hidden md:flex flex-1 overflow-hidden">
+        ) : (
+        /* Desktop Split View */
+        <div className="flex flex-1 overflow-hidden">
           <div className="w-1/2 lg:w-[45%] h-full border-r p-6 overflow-y-auto bg-muted/20 flex flex-col items-center">
             <h3 className="font-display font-bold text-xl mb-6 text-foreground/80 self-start">모습 그리기</h3>
             <FingerDrawingCanvas
@@ -263,8 +297,24 @@ export default function CharacterEditor() {
             <CharacterForm data={charData} onChange={handleFormChange} />
           </div>
         </div>
+        )}
 
       </div>
+
+      <CompletionDialog
+        open={completionOpen}
+        onOpenChange={setCompletionOpen}
+        character={charData}
+        completed={completedCount}
+        total={activeIds.length}
+        nextFingerLabel={nextEmptyId ? describeFinger(nextEmptyId) : undefined}
+        onNextFinger={nextEmptyId ? () => {
+          setCompletionOpen(false);
+          setLocation(`/character/${nextEmptyId}`);
+        } : undefined}
+        onGoHome={() => { setCompletionOpen(false); setLocation('/'); }}
+        onGoCards={() => { setCompletionOpen(false); setLocation('/cards'); }}
+      />
     </div>
   );
 }
