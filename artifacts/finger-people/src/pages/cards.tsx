@@ -64,6 +64,9 @@ export default function Cards() {
     }
   };
 
+  const safeIndex = Math.min(singleIndex, Math.max(0, displayCharacters.length - 1));
+  const current = displayCharacters[safeIndex];
+
   if (isLoading) {
     return <div className="flex-1 flex items-center justify-center"><MaterialIcon name="sync" className="animate-spin text-4xl text-muted-foreground" /></div>;
   }
@@ -142,31 +145,48 @@ export default function Cards() {
           {viewMode === 'grid' ? (
             <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6 place-items-center">
               {displayCharacters.map(char => (
-                <div key={char.id} className="relative group w-full max-w-[320px]">
-                  <CharacterCard 
+                <div key={char.id} className="w-full max-w-[320px]">
+                  <CharacterCard
                     id={`card-${char.id}`}
-                    character={char} 
-                    onEdit={() => setLocation(`/character/${char.id}`)}
-                    onDownload={() => handleDownload(char)}
+                    character={char}
+                    hideActions
                   />
-                  <div className="absolute -top-3 -right-3 z-30 opacity-0 group-hover:opacity-100 focus-within:opacity-100 transition-opacity">
-                    <Button 
-                      variant="destructive" 
-                      size="icon" 
-                      className="rounded-full shadow-md w-8 h-8"
-                      onClick={() => setDeleteId(char.id)}
+                  {/* Always-visible controls: hover-only buttons are unreachable
+                      on the tablets this app is used on. */}
+                  <div className="mt-3 flex items-center justify-center gap-2">
+                    <Button
+                      variant="outline"
+                      className="h-10 flex-1 rounded-full"
+                      onClick={() => setLocation(`/character/${char.id}`)}
                     >
-                      <MaterialIcon name="delete" className="text-[18px]" />
+                      <MaterialIcon name="edit" className="mr-1 text-[18px]" /> 수정
                     </Button>
-                  </div>
-                  <div className="absolute -top-3 -left-3 z-30 opacity-0 group-hover:opacity-100 focus-within:opacity-100 transition-opacity">
-                    <Button 
-                      variant="secondary" 
-                      size="icon" 
-                      className="rounded-full shadow-md w-8 h-8"
+                    <Button
+                      variant="outline"
+                      size="icon"
+                      className="h-10 w-10 rounded-full"
+                      aria-label={`${char.name} 카드 이미지로 저장`}
+                      onClick={() => handleDownload(char)}
+                    >
+                      <MaterialIcon name="download" className="text-[18px]" />
+                    </Button>
+                    <Button
+                      variant="outline"
+                      size="icon"
+                      className="h-10 w-10 rounded-full"
+                      aria-label={`${char.name} 카드 복사`}
                       onClick={() => handleCopy(char)}
                     >
                       <MaterialIcon name="content_copy" className="text-[18px]" />
+                    </Button>
+                    <Button
+                      variant="outline"
+                      size="icon"
+                      className="h-10 w-10 rounded-full text-destructive hover:bg-destructive/10 hover:text-destructive"
+                      aria-label={`${char.name} 삭제`}
+                      onClick={() => setDeleteId(char.id)}
+                    >
+                      <MaterialIcon name="delete" className="text-[18px]" />
                     </Button>
                   </div>
                 </div>
@@ -175,29 +195,35 @@ export default function Cards() {
           ) : (
             <div className="flex-1 flex flex-col items-center justify-center min-h-[500px]">
               <div className="flex items-center justify-center gap-4 w-full">
+                {/* index is clamped: deleting the last card must not blank the view */}
                 <Button 
                   variant="ghost" 
                   size="icon" 
                   className="w-12 h-12 rounded-full hidden sm:flex"
-                  onClick={() => setSingleIndex(Math.max(0, singleIndex - 1))}
-                  disabled={singleIndex === 0}
+                  onClick={() => setSingleIndex(Math.max(0, safeIndex - 1))}
+                  disabled={safeIndex === 0}
                 >
                   <MaterialIcon name="chevron_left" className="text-3xl" />
                 </Button>
                 
-                <div className="relative group mx-4 w-full max-w-[400px]">
-                   <CharacterCard 
-                    id={`card-${displayCharacters[singleIndex].id}`}
-                    character={displayCharacters[singleIndex]} 
-                    className="max-w-[400px] w-full mx-auto transform scale-100 sm:scale-105 transition-transform"
-                    onEdit={() => setLocation(`/character/${displayCharacters[singleIndex].id}`)}
-                    onDownload={() => handleDownload(displayCharacters[singleIndex])}
+                <div className="mx-4 w-full max-w-[400px]">
+                  <CharacterCard
+                    id={`card-${current.id}`}
+                    character={current}
+                    hideActions
+                    className="mx-auto w-full max-w-[400px] transform transition-transform sm:scale-105"
                   />
-                  <div className="flex justify-center gap-3 mt-8">
-                    <Button variant="outline" className="rounded-full" onClick={() => handleCopy(displayCharacters[singleIndex])}>
+                  <div className="mt-8 flex flex-wrap justify-center gap-3">
+                    <Button variant="outline" className="rounded-full" onClick={() => setLocation(`/character/${current.id}`)}>
+                      <MaterialIcon name="edit" className="mr-2" /> 수정
+                    </Button>
+                    <Button variant="outline" className="rounded-full" onClick={() => handleDownload(current)}>
+                      <MaterialIcon name="download" className="mr-2" /> 저장
+                    </Button>
+                    <Button variant="outline" className="rounded-full" onClick={() => handleCopy(current)}>
                       <MaterialIcon name="content_copy" className="mr-2" /> 복사
                     </Button>
-                    <Button variant="outline" className="rounded-full" onClick={() => setDeleteId(displayCharacters[singleIndex].id)}>
+                    <Button variant="outline" className="rounded-full" onClick={() => setDeleteId(current.id)}>
                       <MaterialIcon name="delete" className="mr-2 text-destructive" /> 삭제
                     </Button>
                   </div>
@@ -207,20 +233,20 @@ export default function Cards() {
                   variant="ghost" 
                   size="icon" 
                   className="w-12 h-12 rounded-full hidden sm:flex"
-                  onClick={() => setSingleIndex(Math.min(displayCharacters.length - 1, singleIndex + 1))}
-                  disabled={singleIndex === displayCharacters.length - 1}
+                  onClick={() => setSingleIndex(Math.min(displayCharacters.length - 1, safeIndex + 1))}
+                  disabled={safeIndex === displayCharacters.length - 1}
                 >
                   <MaterialIcon name="chevron_right" className="text-3xl" />
                 </Button>
               </div>
               
               <div className="flex gap-2 mt-8 sm:hidden">
-                <Button variant="outline" onClick={() => setSingleIndex(Math.max(0, singleIndex - 1))} disabled={singleIndex === 0}>이전</Button>
-                <Button variant="outline" onClick={() => setSingleIndex(Math.min(displayCharacters.length - 1, singleIndex + 1))} disabled={singleIndex === displayCharacters.length - 1}>다음</Button>
+                <Button variant="outline" onClick={() => setSingleIndex(Math.max(0, safeIndex - 1))} disabled={safeIndex === 0}>이전</Button>
+                <Button variant="outline" onClick={() => setSingleIndex(Math.min(displayCharacters.length - 1, safeIndex + 1))} disabled={safeIndex === displayCharacters.length - 1}>다음</Button>
               </div>
               
               <div className="text-sm text-muted-foreground mt-4 font-medium">
-                {singleIndex + 1} / {displayCharacters.length}
+                {safeIndex + 1} / {displayCharacters.length}
               </div>
             </div>
           )}

@@ -1,4 +1,4 @@
-import { useState, useRef } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useCharacters } from '@/lib/useCharacters';
 import { MaterialIcon } from '@/components/MaterialIcon';
 import { Button } from '@/components/ui/button';
@@ -17,21 +17,29 @@ export default function ExportCenter() {
   
   const [exportType, setExportType] = useState<'hand' | 'cards'>('cards');
   
-  // Hand export options
-  const [handView, setHandView] = useState<'left' | 'both'>('left');
+  // Hand export options — the right hand is the default hand, the left is optional
+  const [showLeftHand, setShowLeftHand] = useState(false);
   
   // Card export options
   const [cardFilter, setCardFilter] = useState<'completed' | 'all'>('completed');
   const [layoutMode, setLayoutMode] = useState<'grid' | 'single'>('grid');
 
+  const [busy, setBusy] = useState<'png' | 'pdf' | null>(null);
+
   const previewRef = useRef<HTMLDivElement>(null);
 
   const displayCards = characters.filter(c => cardFilter === 'all' || c.isCompleted);
-  const hasRightHand = characters.some(c => c.hand === 'right');
+  const hasLeftHand = characters.some(c => c.hand === 'left' && c.name.trim());
+
+  // Don't silently drop the child's left-hand characters from the printout.
+  useEffect(() => {
+    if (hasLeftHand) setShowLeftHand(true);
+  }, [hasLeftHand]);
 
   const handleExport = async (format: 'png' | 'pdf') => {
-    if (!previewRef.current) return;
-    
+    if (!previewRef.current || busy) return;
+
+    setBusy(format);
     try {
       if (format === 'png') {
         await exportToImage(previewRef.current, `fingerpeople_${exportType}.png`);
@@ -43,17 +51,30 @@ export default function ExportCenter() {
     } catch (error) {
       console.error(error);
       toast({ title: "저장 실패", description: "저장 중 문제가 발생했습니다.", variant: "destructive" });
+    } finally {
+      setBusy(null);
     }
   };
 
   const handleShare = async () => {
     const res = await shareLink();
     if (res === 'copied') {
-      toast({ title: "링크 복사됨", description: "주소가 클립보드에 복사되었습니다." });
+      toast({
+        title: "앱 주소를 복사했어요",
+        description: "만든 인물은 이 기기에만 저장되니, 친구에게 보낼 때는 이미지나 PDF로 저장해 주세요.",
+      });
+    } else if (res === 'unsupported') {
+      toast({ title: "복사 실패", description: "주소를 복사할 수 없어요.", variant: "destructive" });
     }
   };
 
-  if (isLoading) return null;
+  if (isLoading) {
+    return (
+      <div className="flex flex-1 items-center justify-center">
+        <MaterialIcon name="sync" className="animate-spin text-4xl text-muted-foreground" />
+      </div>
+    );
+  }
 
   return (
     <div className="flex-1 flex flex-col max-w-7xl mx-auto w-full p-4 md:p-8">
@@ -88,15 +109,15 @@ export default function ExportCenter() {
             {exportType === 'hand' && (
               <div className="space-y-4">
                 <div className="flex items-center justify-between">
-                  <Label htmlFor="hand-view" className="font-bold">양손 표시</Label>
-                  <Switch 
-                    id="hand-view" 
-                    checked={handView === 'both'} 
-                    onCheckedChange={(c) => setHandView(c ? 'both' : 'left')} 
+                  <Label htmlFor="hand-view" className="font-bold">왼손도 함께 출력</Label>
+                  <Switch
+                    id="hand-view"
+                    checked={showLeftHand}
+                    onCheckedChange={setShowLeftHand}
                   />
                 </div>
-                {handView === 'both' && !hasRightHand && (
-                  <p className="text-xs text-muted-foreground text-orange-600">오른손에 작성된 인물이 없습니다.</p>
+                {showLeftHand && !hasLeftHand && (
+                  <p className="text-xs text-orange-600">왼손에는 아직 만든 인물이 없어요.</p>
                 )}
               </div>
             )}
@@ -125,15 +146,20 @@ export default function ExportCenter() {
 
           {/* Action Buttons */}
           <div className="bg-primary/5 rounded-3xl p-6 border border-primary/20 flex flex-col gap-3">
-            <Button onClick={() => handleExport('png')} className="w-full rounded-full h-12 text-base font-bold shadow-sm">
-              <MaterialIcon name="image" className="mr-2" /> 이미지(PNG)로 저장
+            <Button onClick={() => handleExport('png')} disabled={!!busy} className="w-full rounded-full h-12 text-base font-bold shadow-sm">
+              <MaterialIcon name={busy === 'png' ? 'sync' : 'image'} className={cn('mr-2', busy === 'png' && 'animate-spin')} />
+              {busy === 'png' ? '저장하는 중...' : '이미지(PNG)로 저장'}
             </Button>
-            <Button onClick={() => handleExport('pdf')} variant="secondary" className="w-full rounded-full h-12 text-base font-bold shadow-sm border">
-              <MaterialIcon name="picture_as_pdf" className="mr-2" /> PDF 문서로 저장
+            <Button onClick={() => handleExport('pdf')} disabled={!!busy} variant="secondary" className="w-full rounded-full h-12 text-base font-bold shadow-sm border">
+              <MaterialIcon name={busy === 'pdf' ? 'sync' : 'picture_as_pdf'} className={cn('mr-2', busy === 'pdf' && 'animate-spin')} />
+              {busy === 'pdf' ? '저장하는 중...' : 'PDF 문서로 저장'}
             </Button>
             <Button onClick={handleShare} variant="outline" className="w-full rounded-full h-12 text-base bg-white">
-              <MaterialIcon name="share" className="mr-2" /> 링크 공유하기
+              <MaterialIcon name="share" className="mr-2" /> 앱 주소 공유하기
             </Button>
+            <p className="text-xs text-muted-foreground text-center leading-relaxed">
+              만든 인물은 이 기기에만 저장돼요. 다른 사람에게 보여주려면 이미지나 PDF로 저장하세요.
+            </p>
           </div>
         </div>
 
@@ -160,7 +186,7 @@ export default function ExportCenter() {
               {exportType === 'hand' && (
                 <div className="flex flex-col items-center">
                   <h1 className="text-3xl font-display font-bold mb-12 text-center text-primary">나의 핑거피플</h1>
-                  <HandCanvas characters={characters} showRightHand={handView === 'both'} />
+                  <HandCanvas characters={characters} showLeftHand={showLeftHand} interactive={false} />
                 </div>
               )}
 

@@ -30,13 +30,13 @@ export function CharacterCard({
       id={id}
       className={cn(
         "bg-white rounded-3xl overflow-hidden border shadow-md flex flex-col relative group transition-all",
-        "w-full aspect-[2/3] max-w-[400px]", 
+        "w-full max-w-[400px]",
         className
       )}
     >
-      {/* Top half: Visual (Color + Drawing) */}
-      <div 
-        className="h-[45%] w-full relative flex items-center justify-center p-4 border-b"
+      {/* Top: Visual (Color + Drawing) — scales with the card width */}
+      <div
+        className="aspect-[4/3] w-full relative flex items-center justify-center p-4 border-b"
         style={{ backgroundColor: character.color || '#F5F5F5' }}
       >
         <div className="absolute inset-0 opacity-10 bg-[radial-gradient(circle_at_center,_var(--tw-gradient-stops))] from-white to-transparent" />
@@ -46,7 +46,6 @@ export function CharacterCard({
             src={character.drawingDataUrl} 
             alt={character.name} 
             className="h-[120%] w-auto max-w-full object-contain relative z-10 filter drop-shadow-lg scale-110 translate-y-4"
-            crossOrigin="anonymous"
           />
         ) : (
           <div className="w-24 h-24 rounded-full bg-white/30 backdrop-blur-sm flex items-center justify-center">
@@ -63,9 +62,9 @@ export function CharacterCard({
         </div>
       </div>
 
-      {/* Bottom half: Info */}
-      <div className="h-[55%] w-full bg-white p-5 flex flex-col z-20">
-        
+      {/* Bottom: Info — grows with its content so nothing is ever half-cut */}
+      <div className="w-full flex-1 bg-white p-5 flex flex-col z-20">
+
         <div className="flex items-start justify-between mb-4 gap-2">
           <h3 className="text-2xl font-display font-extrabold truncate leading-tight">
             {character.name || '이름 없음'}
@@ -75,21 +74,21 @@ export function CharacterCard({
           </div>
         </div>
 
-        <div className="flex-1 space-y-3 overflow-hidden text-sm flex flex-col justify-center">
-          
+        <div className="flex-1 space-y-3 text-sm flex flex-col">
+
           {character.appearance && (
-            <p className="text-muted-foreground leading-snug line-clamp-2">
+            <p className="text-muted-foreground leading-snug line-clamp-3">
               {character.appearance}
             </p>
           )}
 
-          <div className="grid grid-cols-2 gap-3 text-xs mt-auto">
+          <div className="grid grid-cols-2 gap-3 text-xs">
             {character.likes && (
               <div className="flex flex-col gap-1">
                 <span className="flex items-center gap-1 font-bold text-green-600">
                   <MaterialIcon name="thumb_up" className="text-[14px]" /> 좋아하는 것
                 </span>
-                <span className="truncate text-muted-foreground">{character.likes}</span>
+                <span className="text-muted-foreground line-clamp-2">{character.likes}</span>
               </div>
             )}
             
@@ -98,22 +97,22 @@ export function CharacterCard({
                 <span className="flex items-center gap-1 font-bold text-destructive">
                   <MaterialIcon name="thumb_down" className="text-[14px]" /> 싫어하는 것
                 </span>
-                <span className="truncate text-muted-foreground">{character.dislikes}</span>
+                <span className="text-muted-foreground line-clamp-2">{character.dislikes}</span>
               </div>
             )}
           </div>
 
           {(character.goal || character.catchphrase) && (
-            <div className="pt-2 border-t mt-2 flex flex-col gap-2">
+            <div className="pt-2 border-t mt-auto flex flex-col gap-2">
               {character.goal && (
-                <div className="flex items-center gap-2">
+                <div className="flex items-start gap-2">
                   <span className="text-accent-foreground text-xs"><MaterialIcon name="flag" className="text-[16px]" /></span>
-                  <span className="font-medium truncate flex-1">{character.goal}</span>
+                  <span className="font-medium flex-1 line-clamp-2">{character.goal}</span>
                 </div>
               )}
               {character.catchphrase && (
                 <div className="bg-primary/5 rounded-2xl rounded-tl-none p-2.5 px-3 border border-primary/10">
-                  <span className="font-bold text-primary font-display leading-tight block">"{character.catchphrase}"</span>
+                  <span className="font-bold text-primary font-display leading-tight block line-clamp-2">"{character.catchphrase}"</span>
                 </div>
               )}
             </div>

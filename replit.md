@@ -31,8 +31,10 @@
 
 - **No backend**: 모든 데이터를 IndexedDB에 로컬 저장. 로그인 없이 즉시 사용 가능.
 - **Two canvas layers**: 손가락 실루엣(배경, 불변) + 사용자 드로잉(투명 레이어) 분리
-- **Share via file**: 링크 공유는 서버 없이 Web Share API 또는 파일 다운로드 + URL 복사로 대체
+- **Share via file**: 링크 공유는 앱 주소만 전달. 인물 데이터는 이미지/PDF로 내보내야 공유됨
 - **Character ID**: `"left-1"` ~ `"left-5"`, `"right-1"` ~ `"right-5"` 형태로 고정
+- **Shared character store**: `useCharacters`는 모듈 레벨 스토어 + `useSyncExternalStore`. 헤더·홈·편집기가 같은 목록을 본다
+- **Finger hotspots**: `HandCanvas`는 손 PNG와 히트영역을 하나의 SVG(`viewBox`) 안에 넣어 좌표계를 공유. 손가락마다 실루엣을 스캔해 맞춘 tapered capsule 경로를 쓰므로 틀(프레임) 없이 손가락 모양 그대로 강조·채색된다
 
 ## User preferences
 
@@ -49,6 +51,9 @@
 - `index.html`에 폰트·Material Symbols CDN `<link>` 태그 있어야 함.
 - idb, html-to-image, jspdf는 `dependencies`에 설치됨 (devDependencies 아님).
 - PointerEvents에서 setPointerCapture/releasePointerCapture 사용 시 `(e.target as Element)` 캐스팅 필요.
+- `HandCanvas`의 손가락 좌표는 hand-right.png 기준(1414×2000 viewBox). 왼손은 x축 미러링으로 생성하므로 오른손 값만 고치면 된다. 손 이미지를 바꾸면 좌표를 다시 측정해야 함.
+- `vite build`/`vite dev`는 `PORT`, `BASE_PATH` 환경변수가 있어야 config가 로드된다.
+- `FingerDrawingCanvas`는 캐릭터가 바뀔 때 `key={charData.id}`로 리마운트해야 앞 인물의 그림이 남지 않는다.
 
 ## Pointers
 

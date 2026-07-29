@@ -22,7 +22,9 @@ export default function CharacterEditor() {
   
   const [charData, setCharData] = useState<Character | null>(null);
   const [saveStatus, setSaveStatus] = useState<SaveState>('saved');
-  
+  // Controlled so validation can pull the child back to the tab that needs input.
+  const [mobileTab, setMobileTab] = useState<'drawing' | 'info'>('info');
+
   const lastSavedData = useRef<Character | null>(null);
   const initializedId = useRef<string | null>(null);
   const saveTimeoutRef = useRef<NodeJS.Timeout | null>(null);
@@ -38,7 +40,10 @@ export default function CharacterEditor() {
       if (existing) {
         setCharData({ ...existing });
         lastSavedData.current = { ...existing };
+        // Already named? Then the child is most likely here to draw.
+        setMobileTab(existing.name.trim() ? 'drawing' : 'info');
       } else {
+        setMobileTab('info');
         // Create new empty template
         const parts = id.split('-');
         if (parts.length !== 2 || !['left', 'right'].includes(parts[0])) {
@@ -110,11 +115,13 @@ export default function CharacterEditor() {
   const handleComplete = async () => {
     if (!charData) return;
     if (!charData.name.trim()) {
+      setMobileTab('info');
       toast({
         title: "이름을 입력해주세요!",
-        description: "인물의 이름은 꼭 필요해요.",
+        description: "'정보' 칸에서 인물의 이름을 먼저 적어주세요.",
         variant: "destructive"
       });
+      document.getElementById('char-name')?.focus();
       return;
     }
     
@@ -127,9 +134,9 @@ export default function CharacterEditor() {
       
       toast({
         title: "완성!",
-        description: "멋진 핑거피플이 탄생했어요.",
+        description: "멋진 핑거피플이 탄생했어요. 인물 카드 갤러리로 이동할게요.",
       });
-      
+
       setTimeout(() => setLocation('/cards'), 1500);
     } catch (e) {
       setSaveStatus('error');
@@ -143,29 +150,21 @@ export default function CharacterEditor() {
 
   const navigateFinger = (dir: 1 | -1) => {
     if (!charData) return;
-    const allIds = [
+
+    // Anatomical order across both hands. The right hand is always available;
+    // the left hand only joins the rotation once it holds a character.
+    const ALL_IDS = [
       'left-5', 'left-4', 'left-3', 'left-2', 'left-1',
-      'right-1', 'right-2', 'right-3', 'right-4', 'right-5'
+      'right-1', 'right-2', 'right-3', 'right-4', 'right-5',
     ];
-    
-    const currentIndex = allIds.indexOf(charData.id);
+    const leftInUse = characters.some(c => c.hand === 'left');
+    const ids = ALL_IDS.filter(id => leftInUse || id.startsWith('right-') || id === charData.id);
+
+    const currentIndex = ids.indexOf(charData.id);
     if (currentIndex === -1) return;
-    
-    let nextIndex = currentIndex + dir;
-    if (nextIndex < 0) nextIndex = allIds.length - 1;
-    if (nextIndex >= allIds.length) nextIndex = 0;
-    
-    // Check if the other hand is visible based on existing right-hand characters
-    const hasRightHand = characters.some(c => c.hand === 'right');
-    const nextId = allIds[nextIndex];
-    
-    if (nextId.startsWith('right-') && !hasRightHand) {
-      // Skip right hand if not enabled
-      if (dir === 1) nextIndex = 0; // go back to left-5
-      else nextIndex = 4; // go back to left-1
-    }
-    
-    setLocation(`/character/${allIds[nextIndex]}`);
+
+    const nextIndex = (currentIndex + dir + ids.length) % ids.length;
+    setLocation(`/character/${ids[nextIndex]}`);
   };
 
   if (isLoading || !charData) {
@@ -179,7 +178,7 @@ export default function CharacterEditor() {
   const handLabel = charData.hand === 'left' ? '왼손' : '오른손';
 
   return (
-    <div className="flex flex-col h-[calc(100vh-64px)] max-h-[calc(100dvh-64px)] overflow-hidden">
+    <div className="flex min-h-[540px] flex-1 flex-col overflow-hidden">
       
       {/* Editor Header */}
       <div className="flex-none h-14 border-b bg-white flex items-center justify-between px-4 z-10 shadow-sm">
@@ -197,14 +196,14 @@ export default function CharacterEditor() {
           </div>
         </div>
 
-        <AutoSaveStatus status={saveStatus} className="hidden sm:flex" />
+        <AutoSaveStatus status={saveStatus} />
 
         <div className="flex items-center gap-2">
-          <div className="flex items-center bg-muted/50 rounded-full p-1 mr-2 hidden sm:flex">
-            <Button variant="ghost" size="icon" className="h-8 w-8 rounded-full" onClick={() => navigateFinger(-1)}>
+          <div className="mr-1 flex items-center rounded-full bg-muted/50 p-1 sm:mr-2">
+            <Button variant="ghost" size="icon" className="h-9 w-9 rounded-full" onClick={() => navigateFinger(-1)} aria-label="이전 손가락">
               <MaterialIcon name="chevron_left" />
             </Button>
-            <Button variant="ghost" size="icon" className="h-8 w-8 rounded-full" onClick={() => navigateFinger(1)}>
+            <Button variant="ghost" size="icon" className="h-9 w-9 rounded-full" onClick={() => navigateFinger(1)} aria-label="다음 손가락">
               <MaterialIcon name="chevron_right" />
             </Button>
           </div>
@@ -219,7 +218,11 @@ export default function CharacterEditor() {
         
         {/* Mobile Tabs */}
         <div className="md:hidden flex-1 overflow-hidden flex flex-col">
-          <Tabs defaultValue="drawing" className="w-full flex-1 flex flex-col">
+          <Tabs
+            value={mobileTab}
+            onValueChange={(v) => setMobileTab(v as 'drawing' | 'info')}
+            className="w-full flex-1 flex flex-col"
+          >
             <div className="px-4 pt-4 pb-2 bg-white border-b">
               <TabsList className="w-full grid grid-cols-2 h-12 rounded-full">
                 <TabsTrigger value="drawing" className="rounded-full text-base font-bold">그림</TabsTrigger>
@@ -229,8 +232,9 @@ export default function CharacterEditor() {
             
             <div className="flex-1 overflow-hidden relative">
               <TabsContent value="drawing" className="absolute inset-0 m-0 p-4 overflow-y-auto overflow-x-hidden data-[state=active]:flex flex-col items-center">
-                <FingerDrawingCanvas 
-                  initialDataUrl={charData.drawingDataUrl} 
+                <FingerDrawingCanvas
+                  key={charData.id}
+                  initialDataUrl={charData.drawingDataUrl}
                   baseColor={charData.color}
                   onSave={(dataUrl) => handleFormChange({ drawingDataUrl: dataUrl })}
                 />
@@ -246,8 +250,9 @@ export default function CharacterEditor() {
         <div className="hidden md:flex flex-1 overflow-hidden">
           <div className="w-1/2 lg:w-[45%] h-full border-r p-6 overflow-y-auto bg-muted/20 flex flex-col items-center">
             <h3 className="font-display font-bold text-xl mb-6 text-foreground/80 self-start">모습 그리기</h3>
-            <FingerDrawingCanvas 
-              initialDataUrl={charData.drawingDataUrl} 
+            <FingerDrawingCanvas
+              key={charData.id}
+              initialDataUrl={charData.drawingDataUrl}
               baseColor={charData.color}
               onSave={(dataUrl) => handleFormChange({ drawingDataUrl: dataUrl })}
             />
