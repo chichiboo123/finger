@@ -1,10 +1,12 @@
-import { toPng } from 'html-to-image';
+import { getFontEmbedCSS, toPng } from 'html-to-image';
 import jsPDF from 'jspdf';
 
-/** Rendering the DOM twice warms the webfont/image cache and avoids blank first frames. */
+let fontEmbedCSS: string | undefined;
+
+/** Render once and reuse embedded font CSS; the old warm-up render doubled every wait. */
 async function render(element: HTMLElement) {
-  const options = { pixelRatio: 2, backgroundColor: '#ffffff', cacheBust: true };
-  await toPng(element, options);
+  fontEmbedCSS ??= await getFontEmbedCSS(element);
+  const options = { pixelRatio: 2, backgroundColor: '#ffffff', cacheBust: false, fontEmbedCSS };
   return toPng(element, options);
 }
 
@@ -52,30 +54,4 @@ export async function exportToPdf(element: HTMLElement, filename: string = 'fing
   }
 
   pdf.save(filename);
-}
-
-export type ShareResult = 'shared' | 'copied' | 'unsupported';
-
-/**
- * All character data lives in this browser's IndexedDB, so a URL cannot carry
- * it. This shares the app address only — callers must say so in their message.
- */
-export async function shareLink(): Promise<ShareResult> {
-  const url = window.location.origin + import.meta.env.BASE_URL;
-
-  if (navigator.share) {
-    try {
-      await navigator.share({ title: '핑거피플', text: '핑거피플로 나만의 인물을 만들어 보세요!', url });
-      return 'shared';
-    } catch (error) {
-      // User dismissed the sheet, or sharing is blocked — fall through to copy.
-    }
-  }
-
-  try {
-    await navigator.clipboard.writeText(url);
-    return 'copied';
-  } catch {
-    return 'unsupported';
-  }
 }

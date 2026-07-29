@@ -2,11 +2,12 @@ import { MaterialIcon } from './MaterialIcon';
 import { Button } from './ui/button';
 import { Slider } from './ui/slider';
 import { cn } from '@/lib/utils';
-import { useState } from 'react';
+
+export type DrawingTool = 'pen' | 'eraser' | 'fill';
 
 interface DrawingToolbarProps {
-  tool: 'pen' | 'eraser';
-  setTool: (tool: 'pen' | 'eraser') => void;
+  tool: DrawingTool;
+  setTool: (tool: DrawingTool) => void;
   color: string;
   setColor: (color: string) => void;
   lineWidth: number;
@@ -18,7 +19,11 @@ interface DrawingToolbarProps {
   canRedo: boolean;
 }
 
-const QUICK_COLORS = ["#212121", "#F44336", "#1E88E5", "#FDD835", "#43A047", "#FFFFFF"];
+const PALETTE_COLORS = [
+  '#212121', '#757575', '#FFFFFF', '#F44336', '#FF7043', '#FDD835',
+  '#8BC34A', '#43A047', '#26C6DA', '#29B6F6', '#1E88E5', '#3949AB',
+  '#7B1FA2', '#EC407A', '#6D4C41', '#FFCCBC', '#FFE0B2', '#D7CCC8',
+];
 
 export function DrawingToolbar({
   tool, setTool, color, setColor, lineWidth, setLineWidth,
@@ -39,6 +44,17 @@ export function DrawingToolbar({
             aria-label="펜"
           >
             <MaterialIcon name="edit" />
+          </button>
+          <button
+            onClick={() => setTool('fill')}
+            className={cn(
+              "w-10 h-10 rounded-md flex items-center justify-center transition-colors",
+              tool === 'fill' ? "bg-white shadow-sm text-primary" : "text-muted-foreground hover:bg-white/50"
+            )}
+            aria-label="페인트통"
+            title="막힌 영역을 한 번에 칠하기"
+          >
+            <MaterialIcon name="format_color_fill" />
           </button>
           <button
             onClick={() => setTool('eraser')}
@@ -66,15 +82,15 @@ export function DrawingToolbar({
         </div>
       </div>
 
-      {/* Colors (only relevant for pen) */}
+      {/* Palette is shared by the pen and paint bucket. */}
       <div className={cn("flex flex-col gap-2 transition-opacity", tool === 'eraser' && "opacity-50 pointer-events-none")}>
-        <span className="text-xs font-medium text-muted-foreground">색상</span>
-        <div className="flex items-center gap-2">
-          {QUICK_COLORS.map(c => (
+        <span className="text-xs font-medium text-muted-foreground">색상 팔레트</span>
+        <div className="grid grid-cols-10 gap-2">
+          {PALETTE_COLORS.map(c => (
             <button
               key={c}
               className={cn(
-                "w-8 h-8 rounded-full border-2 transition-transform",
+                "w-7 h-7 rounded-full border-2 transition-transform",
                 color === c ? "border-primary scale-110" : "border-transparent border-border"
               )}
               style={{ backgroundColor: c }}
@@ -82,7 +98,7 @@ export function DrawingToolbar({
               aria-label={`${c} 색상 선택`}
             />
           ))}
-          <div className="relative w-8 h-8 rounded-full overflow-hidden border-2 border-border focus-within:border-primary">
+          <div className="relative w-7 h-7 rounded-full overflow-hidden border-2 border-border focus-within:border-primary">
             <input 
               type="color" 
               value={color} 
@@ -95,7 +111,7 @@ export function DrawingToolbar({
       </div>
 
       {/* Line Width */}
-      <div className="flex flex-col gap-3">
+      <div className={cn("flex flex-col gap-3", tool === 'fill' && "hidden")}>
         <div className="flex justify-between items-center">
           <span className="text-xs font-medium text-muted-foreground">
             {tool === 'eraser' ? '지우개 굵기' : '펜 굵기'}

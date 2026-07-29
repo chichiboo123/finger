@@ -5,7 +5,7 @@ import { Button } from '@/components/ui/button';
 import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group';
 import { CharacterCard } from '@/components/CharacterCard';
 import { HandCanvas } from '@/components/HandCanvas';
-import { exportToImage, exportToPdf, shareLink } from '@/lib/exportUtils';
+import { copyToClipboard, exportToImage, exportToPdf } from '@/lib/exportUtils';
 import { useToast } from '@/hooks/use-toast';
 import { cn } from '@/lib/utils';
 import { Label } from '@/components/ui/label';
@@ -24,7 +24,7 @@ export default function ExportCenter() {
   const [cardFilter, setCardFilter] = useState<'completed' | 'all'>('completed');
   const [layoutMode, setLayoutMode] = useState<'grid' | 'single'>('grid');
 
-  const [busy, setBusy] = useState<'png' | 'pdf' | null>(null);
+  const [busy, setBusy] = useState<'png' | 'pdf' | 'copy' | null>(null);
 
   const previewRef = useRef<HTMLDivElement>(null);
 
@@ -56,16 +56,14 @@ export default function ExportCenter() {
     }
   };
 
-  const handleShare = async () => {
-    const res = await shareLink();
-    if (res === 'copied') {
-      toast({
-        title: "앱 주소를 복사했어요",
-        description: "만든 인물은 이 기기에만 저장되니, 친구에게 보낼 때는 이미지나 PDF로 저장해 주세요.",
-      });
-    } else if (res === 'unsupported') {
-      toast({ title: "복사 실패", description: "주소를 복사할 수 없어요.", variant: "destructive" });
-    }
+  const handleCopyImage = async () => {
+    if (!previewRef.current || busy) return;
+    setBusy('copy');
+    const copied = await copyToClipboard(previewRef.current);
+    setBusy(null);
+    toast(copied
+      ? { title: '이미지를 클립보드에 복사했어요!' }
+      : { title: '복사 실패', description: '이 브라우저에서는 이미지 복사를 지원하지 않아요.', variant: 'destructive' });
   };
 
   if (isLoading) {
@@ -154,11 +152,12 @@ export default function ExportCenter() {
               <MaterialIcon name={busy === 'pdf' ? 'sync' : 'picture_as_pdf'} className={cn('mr-2', busy === 'pdf' && 'animate-spin')} />
               {busy === 'pdf' ? '저장하는 중...' : 'PDF 문서로 저장'}
             </Button>
-            <Button onClick={handleShare} variant="outline" className="w-full rounded-full h-12 text-base bg-white">
-              <MaterialIcon name="share" className="mr-2" /> 앱 주소 공유하기
+            <Button onClick={handleCopyImage} disabled={!!busy} variant="outline" className="w-full rounded-full h-12 text-base bg-white">
+              <MaterialIcon name={busy === 'copy' ? 'sync' : 'content_copy'} className={cn('mr-2', busy === 'copy' && 'animate-spin')} />
+              {busy === 'copy' ? '복사하는 중...' : '이미지 클립보드 복사'}
             </Button>
             <p className="text-xs text-muted-foreground text-center leading-relaxed">
-              만든 인물은 이 기기에만 저장돼요. 다른 사람에게 보여주려면 이미지나 PDF로 저장하세요.
+              만든 결과물은 이미지나 PDF로 저장하거나 클립보드에 복사할 수 있어요.
             </p>
           </div>
         </div>
@@ -182,6 +181,9 @@ export default function ExportCenter() {
                 exportType === 'hand' ? "p-12 w-full max-w-4xl rounded-3xl" : 
                 layoutMode === 'grid' ? "p-8 w-full max-w-5xl rounded-3xl" : "p-0 rounded-3xl max-w-md w-full mx-auto border-none shadow-none bg-transparent"
               )}
+              style={exportType === 'cards' && layoutMode === 'grid'
+                ? { width: `${Math.min(Math.max(displayCards.length, 1), 3) * 280 + (Math.min(Math.max(displayCards.length, 1), 3) - 1) * 24 + 64}px` }
+                : undefined}
             >
               {exportType === 'hand' && (
                 <div className="flex flex-col items-center">
@@ -191,7 +193,10 @@ export default function ExportCenter() {
               )}
 
               {exportType === 'cards' && displayCards.length > 0 && layoutMode === 'grid' && (
-                <div className="grid grid-cols-2 md:grid-cols-3 gap-4 md:gap-6 place-items-center">
+                <div
+                  className="grid gap-6 place-items-center"
+                  style={{ gridTemplateColumns: `repeat(${Math.min(displayCards.length, 3)}, minmax(0, 280px))` }}
+                >
                   {displayCards.map(char => (
                     <div key={char.id} className="w-full max-w-[280px]">
                       <CharacterCard character={char} hideActions />
