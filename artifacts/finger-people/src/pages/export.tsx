@@ -5,7 +5,7 @@ import { Button } from '@/components/ui/button';
 import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group';
 import { CharacterCard } from '@/components/CharacterCard';
 import { HandCanvas } from '@/components/HandCanvas';
-import { copyToClipboard, exportToImage, exportToPdf, shareImage } from '@/lib/exportUtils';
+import { copyToClipboard, exportToImage, exportToPdf } from '@/lib/exportUtils';
 import { useToast } from '@/hooks/use-toast';
 import { cn } from '@/lib/utils';
 import { Label } from '@/components/ui/label';
@@ -24,7 +24,7 @@ export default function ExportCenter() {
   const [cardFilter, setCardFilter] = useState<'completed' | 'all'>('completed');
   const [layoutMode, setLayoutMode] = useState<'grid' | 'single'>('grid');
 
-  const [busy, setBusy] = useState<'png' | 'pdf' | 'copy' | 'share' | null>(null);
+  const [busy, setBusy] = useState<'png' | 'pdf' | 'copy' | null>(null);
 
   const previewRef = useRef<HTMLDivElement>(null);
 
@@ -64,23 +64,6 @@ export default function ExportCenter() {
     toast(copied
       ? { title: '이미지를 클립보드에 복사했어요!' }
       : { title: '복사 실패', description: '이 브라우저에서는 이미지 복사를 지원하지 않아요.', variant: 'destructive' });
-  };
-
-  const handleShare = async () => {
-    if (!previewRef.current || busy) return;
-    setBusy('share');
-    const res = await shareImage(previewRef.current, `fingerpeople_${exportType}.png`)
-      .finally(() => setBusy(null));
-    if (res === 'copied') {
-      toast({
-        title: "인물 카드를 복사했어요",
-        description: "공유할 앱에 붙여넣으면 현재 카드 이미지가 전달돼요.",
-      });
-    } else if (res === 'shared') {
-      toast({ title: '인물 카드 공유 완료!' });
-    } else if (res === 'unsupported') {
-      toast({ title: "공유 실패", description: "이 브라우저에서는 이미지 공유를 지원하지 않아요.", variant: "destructive" });
-    }
   };
 
   if (isLoading) {
@@ -173,12 +156,8 @@ export default function ExportCenter() {
               <MaterialIcon name={busy === 'copy' ? 'sync' : 'content_copy'} className={cn('mr-2', busy === 'copy' && 'animate-spin')} />
               {busy === 'copy' ? '복사하는 중...' : '이미지 클립보드 복사'}
             </Button>
-            <Button onClick={handleShare} disabled={!!busy} variant="outline" className="w-full rounded-full h-12 text-base bg-white">
-              <MaterialIcon name={busy === 'share' ? 'sync' : 'share'} className={cn('mr-2', busy === 'share' && 'animate-spin')} />
-              {busy === 'share' ? '공유 준비 중...' : '인물 카드 공유하기'}
-            </Button>
             <p className="text-xs text-muted-foreground text-center leading-relaxed">
-              공유할 때는 긴 링크 대신 현재 인물 카드 이미지를 바로 전달해요.
+              만든 결과물은 이미지나 PDF로 저장하거나 클립보드에 복사할 수 있어요.
             </p>
           </div>
         </div>
@@ -202,6 +181,9 @@ export default function ExportCenter() {
                 exportType === 'hand' ? "p-12 w-full max-w-4xl rounded-3xl" : 
                 layoutMode === 'grid' ? "p-8 w-full max-w-5xl rounded-3xl" : "p-0 rounded-3xl max-w-md w-full mx-auto border-none shadow-none bg-transparent"
               )}
+              style={exportType === 'cards' && layoutMode === 'grid'
+                ? { width: `${Math.min(Math.max(displayCards.length, 1), 3) * 280 + (Math.min(Math.max(displayCards.length, 1), 3) - 1) * 24 + 64}px` }
+                : undefined}
             >
               {exportType === 'hand' && (
                 <div className="flex flex-col items-center">
@@ -211,7 +193,10 @@ export default function ExportCenter() {
               )}
 
               {exportType === 'cards' && displayCards.length > 0 && layoutMode === 'grid' && (
-                <div className="grid grid-cols-2 md:grid-cols-3 gap-4 md:gap-6 place-items-center">
+                <div
+                  className="grid gap-6 place-items-center"
+                  style={{ gridTemplateColumns: `repeat(${Math.min(displayCards.length, 3)}, minmax(0, 280px))` }}
+                >
                   {displayCards.map(char => (
                     <div key={char.id} className="w-full max-w-[280px]">
                       <CharacterCard character={char} hideActions />

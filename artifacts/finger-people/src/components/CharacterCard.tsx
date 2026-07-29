@@ -3,6 +3,20 @@ import { MaterialIcon } from "./MaterialIcon";
 import { FingerSilhouette, FINGER_BOX } from "./FingerSilhouette";
 import { getContrastColor, cn } from "@/lib/utils";
 
+function CardIcon({ name, className }: { name: 'like' | 'dislike' | 'goal'; className?: string }) {
+  const path = name === 'like'
+    ? 'M7 10v10H3V10h4Zm4 10a2 2 0 0 1-2-2v-8l4-7 2 1v5h5a2 2 0 0 1 2 2l-2 7a3 3 0 0 1-3 2h-6Z'
+    : name === 'dislike'
+      ? 'M7 14V4H3v10h4Zm4-10a2 2 0 0 0-2 2v8l4 7 2-1v-5h5a2 2 0 0 0 2-2l-2-7a3 3 0 0 0-3-2h-6Z'
+      : 'M5 22V3h11l1 3h4v10h-7l-1-3H7v9H5Z';
+
+  return (
+    <svg viewBox="0 0 24 24" aria-hidden="true" className={cn('h-4 w-4 shrink-0 fill-current', className)}>
+      <path d={path} />
+    </svg>
+  );
+}
+
 interface CharacterCardProps {
   character: Character;
   className?: string;
@@ -91,7 +105,7 @@ export function CharacterCard({
             {character.likes && (
               <div className="flex flex-col gap-1">
                 <span className="flex items-center gap-1 font-bold text-green-600">
-                  <MaterialIcon name="thumb_up" className="text-[14px]" /> 좋아하는 것
+                  <CardIcon name="like" /> 좋아하는 것
                 </span>
                 <span className="text-muted-foreground line-clamp-2">{character.likes}</span>
               </div>
@@ -100,7 +114,7 @@ export function CharacterCard({
             {character.dislikes && (
               <div className="flex flex-col gap-1">
                 <span className="flex items-center gap-1 font-bold text-destructive">
-                  <MaterialIcon name="thumb_down" className="text-[14px]" /> 싫어하는 것
+                  <CardIcon name="dislike" /> 싫어하는 것
                 </span>
                 <span className="text-muted-foreground line-clamp-2">{character.dislikes}</span>
               </div>
@@ -111,7 +125,7 @@ export function CharacterCard({
             <div className="pt-2 border-t mt-auto flex flex-col gap-2">
               {character.goal && (
                 <div className="flex items-start gap-2">
-                  <span className="text-accent-foreground text-xs"><MaterialIcon name="flag" className="text-[16px]" /></span>
+                  <span className="text-accent-foreground"><CardIcon name="goal" /></span>
                   <span className="font-medium flex-1 line-clamp-2">{character.goal}</span>
                 </div>
               )}
