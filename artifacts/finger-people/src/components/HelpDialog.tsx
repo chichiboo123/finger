@@ -6,7 +6,7 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { MaterialIcon } from "./MaterialIcon";
 
 interface HelpDialogProps {
@@ -59,11 +59,10 @@ export function HelpDialog({ open, onOpenChange }: HelpDialogProps) {
     if (step > 0) setStep(step - 1);
   };
 
-  // Reset step when opened
-  if (open && step > 0 && !document.getElementById('help-dialog-content')) {
-    // using a timeout to let render cycle finish before reset if needed
-    setTimeout(() => setStep(0), 100);
-  }
+  // Always start the walkthrough from the first step
+  useEffect(() => {
+    if (open) setStep(0);
+  }, [open]);
 
   const current = STEPS[step];
 

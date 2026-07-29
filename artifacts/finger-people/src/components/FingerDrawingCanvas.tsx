@@ -1,11 +1,21 @@
 import { useRef, useEffect, useState, useCallback } from 'react';
 import { DrawingToolbar } from './DrawingToolbar';
 import { ConfirmDialog } from './ConfirmDialog';
+import { tintColor } from '@/lib/utils';
 
 interface FingerDrawingCanvasProps {
   initialDataUrl: string | null;
   baseColor: string;
-  onSave: (dataUrl: string) => void;
+  /** null when the child has erased everything, so the card falls back to its placeholder */
+  onSave: (dataUrl: string | null) => void;
+}
+
+/** True when no pixel has been painted on the transparent drawing layer. */
+function isBlank(data: ImageData) {
+  for (let i = 3; i < data.data.length; i += 4) {
+    if (data.data[i] !== 0) return false;
+  }
+  return true;
 }
 
 export function FingerDrawingCanvas({ initialDataUrl, baseColor, onSave }: FingerDrawingCanvasProps) {
@@ -38,37 +48,44 @@ export function FingerDrawingCanvas({ initialDataUrl, baseColor, onSave }: Finge
     ctx.lineCap = 'round';
     ctx.lineJoin = 'round';
     
-    if (initialDataUrl && history.length === 0) {
+    if (initialDataUrl) {
       const img = new Image();
       img.onload = () => {
         ctx.clearRect(0, 0, canvas.width, canvas.height);
         ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
-        saveState(); // Save initial state to history
+        // Seed the undo history without writing back — nothing changed yet.
+        pushHistory(false);
       };
       img.src = initialDataUrl;
-    } else if (history.length === 0) {
-      // blank canvas
-      saveState();
+    } else {
+      pushHistory(false);
     }
   }, []);
 
-  const saveState = useCallback(() => {
+  /**
+   * `notify: false` records an undo step only. Persisting on mount would write
+   * a blank PNG for every finger the child merely opens, which then hides the
+   * card's placeholder artwork.
+   */
+  const pushHistory = useCallback((notify = true) => {
     const canvas = canvasRef.current;
     if (!canvas) return;
     const ctx = canvas.getContext('2d', { willReadFrequently: true });
     if (!ctx) return;
-    
+
     const imgData = ctx.getImageData(0, 0, canvas.width, canvas.height);
-    
+
     setHistory(prev => {
       const newHistory = prev.slice(0, historyStep + 1);
-      return [...newHistory, imgData];
+      // Cap the stack: 10 fingers × full-canvas ImageData adds up fast.
+      return [...newHistory, imgData].slice(-25);
     });
-    setHistoryStep(prev => prev + 1);
-    
-    // Notify parent to save to DB (we just trigger onChange)
-    onSave(canvas.toDataURL('image/png'));
+    setHistoryStep(prev => Math.min(prev + 1, 24));
+
+    if (notify) onSave(isBlank(imgData) ? null : canvas.toDataURL('image/png'));
   }, [historyStep, onSave]);
+
+  const saveState = useCallback(() => pushHistory(true), [pushHistory]);
 
   const undo = () => {
     if (historyStep <= 0) return;
@@ -79,7 +96,7 @@ export function FingerDrawingCanvas({ initialDataUrl, baseColor, onSave }: Finge
     const newStep = historyStep - 1;
     ctx.putImageData(history[newStep], 0, 0);
     setHistoryStep(newStep);
-    onSave(canvas.toDataURL('image/png'));
+    onSave(isBlank(history[newStep]) ? null : canvas.toDataURL('image/png'));
   };
 
   const redo = () => {
@@ -91,7 +108,7 @@ export function FingerDrawingCanvas({ initialDataUrl, baseColor, onSave }: Finge
     const newStep = historyStep + 1;
     ctx.putImageData(history[newStep], 0, 0);
     setHistoryStep(newStep);
-    onSave(canvas.toDataURL('image/png'));
+    onSave(isBlank(history[newStep]) ? null : canvas.toDataURL('image/png'));
   };
 
   const clearCanvas = () => {
@@ -188,7 +205,7 @@ export function FingerDrawingCanvas({ initialDataUrl, baseColor, onSave }: Finge
           {/* Finger body */}
           <path
             d="M 160 446 C 108 442 86 412 86 366 C 86 290 87 198 100 118 C 110 57 132 36 160 34 C 188 36 210 57 220 118 C 233 198 234 290 234 366 C 234 412 212 442 160 446 Z"
-            fill={baseColor || '#FDDDB8'}
+            fill={tintColor(baseColor)}
             stroke="#D4A070"
             strokeWidth="2.5"
             strokeLinejoin="round"

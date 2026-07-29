@@ -10,7 +10,11 @@ interface AutoSaveStatusProps {
 
 export function AutoSaveStatus({ status, className }: AutoSaveStatusProps) {
   return (
-    <div className={cn("flex items-center gap-1.5 text-xs font-medium", className)}>
+    <div
+      role="status"
+      aria-live="polite"
+      className={cn("flex items-center gap-1.5 text-xs font-medium", className)}
+    >
       {status === 'saving' && (
         <span className="flex items-center gap-1 text-muted-foreground">
           <MaterialIcon name="sync" className="text-base animate-spin" />
