@@ -194,23 +194,6 @@ export function FingerDrawingCanvas({ initialDataUrl, baseColor, onSave }: Finge
             strokeLinejoin="round"
             className="transition-colors duration-300"
           />
-          {/* Fingernail */}
-          <path
-            d="M 136 54 C 136 36 147 34 160 34 C 173 34 184 36 184 54 C 184 68 174 78 160 78 C 146 78 136 68 136 54 Z"
-            fill="#F5E6CC"
-            stroke="#C49060"
-            strokeWidth="1.5"
-            opacity="0.75"
-          />
-          {/* Nail groove */}
-          <path
-            d="M 142 72 Q 160 76 178 72"
-            fill="none"
-            stroke="#C49060"
-            strokeWidth="1"
-            strokeLinecap="round"
-            opacity="0.4"
-          />
           {/* Upper knuckle */}
           <path
             d="M 90 228 Q 160 220 230 228"

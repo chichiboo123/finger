@@ -15,7 +15,18 @@ export function useCharacters() {
     try {
       setIsLoading(true);
       const data = await getAllCharacters();
-      setCharacters(data);
+
+      // Migrate legacy '새끼' → '소지' in stored characters
+      const toMigrate = data.filter(c => c.fingerName === '새끼');
+      if (toMigrate.length > 0) {
+        await Promise.all(
+          toMigrate.map(c => dbSaveCharacter({ ...c, fingerName: '소지' }))
+        );
+      }
+
+      setCharacters(
+        data.map(c => c.fingerName === '새끼' ? { ...c, fingerName: '소지' } : c)
+      );
     } catch (error) {
       console.error("Failed to load characters", error);
     } finally {
