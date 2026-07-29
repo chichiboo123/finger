@@ -130,6 +130,12 @@ export default function CharacterEditor() {
     }
     
     try {
+      // A queued auto-save still contains isCompleted=false. If it runs after
+      // this save it silently turns the completed card back into a draft.
+      if (saveTimeoutRef.current) {
+        clearTimeout(saveTimeoutRef.current);
+        saveTimeoutRef.current = null;
+      }
       setSaveStatus('saving');
       const finalData = { ...charData, isCompleted: true, updatedAt: Date.now() };
       await saveCharacter(finalData);

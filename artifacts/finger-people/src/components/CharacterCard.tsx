@@ -65,13 +65,6 @@ export function CharacterCard({
           </div>
         )}
 
-        {/* Hand/Finger badge */}
-        <div 
-          className="absolute top-4 left-4 px-3 py-1 rounded-full text-xs font-bold shadow-sm z-20 backdrop-blur-md"
-          style={{ backgroundColor: 'rgba(255,255,255,0.8)', color: '#333' }}
-        >
-          {character.hand === 'left' ? '왼손' : '오른손'} {character.fingerName}
-        </div>
       </div>
 
       {/* Bottom: Info — grows with its content so nothing is ever half-cut */}

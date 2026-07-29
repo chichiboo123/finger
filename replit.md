@@ -31,7 +31,7 @@
 
 - **No backend**: 모든 데이터를 IndexedDB에 로컬 저장. 로그인 없이 즉시 사용 가능.
 - **Two canvas layers**: 손가락 실루엣(배경, 불변) + 사용자 드로잉(투명 레이어) 분리
-- **Share via file**: 링크 공유는 앱 주소만 전달. 인물 데이터는 이미지/PDF로 내보내야 공유됨
+- **Share via file**: 공유 버튼은 긴 데이터 URL 대신 현재 카드 미리보기를 PNG 파일로 전달함
 - **Character ID**: `"left-1"` ~ `"left-5"`, `"right-1"` ~ `"right-5"` 형태로 고정
 - **Shared character store**: `useCharacters`는 모듈 레벨 스토어 + `useSyncExternalStore`. 헤더·홈·편집기가 같은 목록을 본다
 - **Finger hotspots**: `HandCanvas`는 손 PNG와 히트영역을 하나의 SVG(`viewBox`) 안에 넣어 좌표계를 공유. 손가락마다 실루엣을 스캔해 맞춘 tapered capsule 경로를 쓰므로 틀(프레임) 없이 손가락 모양 그대로 강조·채색된다
