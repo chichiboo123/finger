@@ -309,7 +309,7 @@ function HandImage({ hand, fingers, characters, label, interactive }: HandImageP
         }
       >
         <image
-          href={hand === 'left' ? '/hand-left.png' : '/hand-right.png'}
+          href={`${import.meta.env.BASE_URL}hand-${hand}.png`}
           x={0}
           y={0}
           width={VB_W}
