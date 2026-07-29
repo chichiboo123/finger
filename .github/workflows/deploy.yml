@@ -1,0 +1,72 @@
+name: Deploy to GitHub Pages
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+# Allow the workflow to publish to Pages using OIDC.
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+# Never run two deploys at once; queue instead of cancelling a live rollout.
+concurrency:
+  group: pages
+  cancel-in-progress: false
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 10.33.0
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Typecheck
+        run: pnpm run typecheck
+
+      - name: Build
+        # vite.config.ts requires both variables. BASE_PATH must match the
+        # Pages subpath (https://<user>.github.io/<repo>/) or every asset 404s.
+        env:
+          PORT: '5000'
+          BASE_PATH: /${{ github.event.repository.name }}/
+          NODE_ENV: production
+        run: pnpm --filter @workspace/finger-people run build
+
+      - name: Add SPA fallback
+        # Pages serves static files only, so a hard refresh on /cards would 404.
+        # GitHub Pages returns 404.html for unknown paths; serving the app there
+        # lets the client router take over.
+        run: cp artifacts/finger-people/dist/public/index.html artifacts/finger-people/dist/public/404.html
+
+      - uses: actions/configure-pages@v5
+        with:
+          # Creates the Pages site on first run so no manual setup is needed.
+          enablement: true
+
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: artifacts/finger-people/dist/public
+
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - id: deployment
+        uses: actions/deploy-pages@v4
