@@ -1,11 +1,12 @@
 import { useRef, useEffect, useState, useCallback } from 'react';
-import { DrawingToolbar } from './DrawingToolbar';
+import { DrawingToolbar, DrawingTool } from './DrawingToolbar';
 import { ConfirmDialog } from './ConfirmDialog';
 import { FingerSilhouette } from './FingerSilhouette';
 import { MaterialIcon } from './MaterialIcon';
 import { Button } from './ui/button';
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from './ui/sheet';
 import { useIsMobile } from '@/hooks/use-mobile';
+import { cn } from '@/lib/utils';
 
 interface FingerDrawingCanvasProps {
   initialDataUrl: string | null;
@@ -27,7 +28,7 @@ export function FingerDrawingCanvas({ initialDataUrl, baseColor, onSave }: Finge
   const containerRef = useRef<HTMLDivElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
   
-  const [tool, setTool] = useState<'pen' | 'eraser'>('pen');
+  const [tool, setTool] = useState<DrawingTool>('pen');
   const [color, setColor] = useState('#212121');
   const [lineWidth, setLineWidth] = useState(5);
   
@@ -148,6 +149,11 @@ export function FingerDrawingCanvas({ initialDataUrl, baseColor, onSave }: Finge
     
     const coords = getCoordinates(e);
     if (!coords) return;
+
+    if (tool === 'fill') {
+      floodFill(Math.floor(coords.x), Math.floor(coords.y));
+      return;
+    }
     
     setIsDrawing(true);
     lastPos.current = coords;
@@ -162,6 +168,39 @@ export function FingerDrawingCanvas({ initialDataUrl, baseColor, onSave }: Finge
     ctx.lineWidth = lineWidth;
     ctx.globalCompositeOperation = tool === 'eraser' ? 'destination-out' : 'source-over';
     ctx.stroke();
+  };
+
+  /** Scanline flood fill: colours only pixels connected to the tapped pixel. */
+  const floodFill = (startX: number, startY: number) => {
+    const canvas = canvasRef.current;
+    const ctx = canvas?.getContext('2d', { willReadFrequently: true });
+    if (!canvas || !ctx) return;
+
+    const image = ctx.getImageData(0, 0, canvas.width, canvas.height);
+    const pixels = image.data;
+    const start = (startY * canvas.width + startX) * 4;
+    const target = [pixels[start], pixels[start + 1], pixels[start + 2], pixels[start + 3]];
+    const hex = color.replace('#', '');
+    const replacement = [
+      Number.parseInt(hex.slice(0, 2), 16),
+      Number.parseInt(hex.slice(2, 4), 16),
+      Number.parseInt(hex.slice(4, 6), 16),
+      255,
+    ];
+    if (target.every((value, index) => value === replacement[index])) return;
+
+    const matches = (offset: number) => target.every((value, index) => pixels[offset + index] === value);
+    const stack = [[startX, startY]];
+    while (stack.length) {
+      const [x, y] = stack.pop()!;
+      if (x < 0 || y < 0 || x >= canvas.width || y >= canvas.height) continue;
+      const offset = (y * canvas.width + x) * 4;
+      if (!matches(offset)) continue;
+      pixels.set(replacement, offset);
+      stack.push([x + 1, y], [x - 1, y], [x, y + 1], [x, y - 1]);
+    }
+    ctx.putImageData(image, 0, 0);
+    saveState();
   };
 
   const draw = (e: React.PointerEvent<HTMLCanvasElement>) => {
@@ -226,7 +265,7 @@ export function FingerDrawingCanvas({ initialDataUrl, baseColor, onSave }: Finge
         {/* Drawing Layer */}
         <canvas
           ref={canvasRef}
-          className="absolute inset-0 w-full h-full z-10 touch-none cursor-crosshair"
+          className={cn("absolute inset-0 w-full h-full z-10 touch-none", tool === 'fill' ? "cursor-cell" : "cursor-crosshair")}
           onPointerDown={startDrawing}
           onPointerMove={draw}
           onPointerUp={stopDrawing}

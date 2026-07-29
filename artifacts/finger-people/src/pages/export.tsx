@@ -5,7 +5,7 @@ import { Button } from '@/components/ui/button';
 import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group';
 import { CharacterCard } from '@/components/CharacterCard';
 import { HandCanvas } from '@/components/HandCanvas';
-import { exportToImage, exportToPdf, shareLink } from '@/lib/exportUtils';
+import { copyToClipboard, exportToImage, exportToPdf, shareLink } from '@/lib/exportUtils';
 import { useToast } from '@/hooks/use-toast';
 import { cn } from '@/lib/utils';
 import { Label } from '@/components/ui/label';
@@ -24,7 +24,7 @@ export default function ExportCenter() {
   const [cardFilter, setCardFilter] = useState<'completed' | 'all'>('completed');
   const [layoutMode, setLayoutMode] = useState<'grid' | 'single'>('grid');
 
-  const [busy, setBusy] = useState<'png' | 'pdf' | null>(null);
+  const [busy, setBusy] = useState<'png' | 'pdf' | 'copy' | null>(null);
 
   const previewRef = useRef<HTMLDivElement>(null);
 
@@ -54,6 +54,16 @@ export default function ExportCenter() {
     } finally {
       setBusy(null);
     }
+  };
+
+  const handleCopyImage = async () => {
+    if (!previewRef.current || busy) return;
+    setBusy('copy');
+    const copied = await copyToClipboard(previewRef.current);
+    setBusy(null);
+    toast(copied
+      ? { title: '이미지를 클립보드에 복사했어요!' }
+      : { title: '복사 실패', description: '이 브라우저에서는 이미지 복사를 지원하지 않아요.', variant: 'destructive' });
   };
 
   const handleShare = async () => {
@@ -153,6 +163,10 @@ export default function ExportCenter() {
             <Button onClick={() => handleExport('pdf')} disabled={!!busy} variant="secondary" className="w-full rounded-full h-12 text-base font-bold shadow-sm border">
               <MaterialIcon name={busy === 'pdf' ? 'sync' : 'picture_as_pdf'} className={cn('mr-2', busy === 'pdf' && 'animate-spin')} />
               {busy === 'pdf' ? '저장하는 중...' : 'PDF 문서로 저장'}
+            </Button>
+            <Button onClick={handleCopyImage} disabled={!!busy} variant="outline" className="w-full rounded-full h-12 text-base bg-white">
+              <MaterialIcon name={busy === 'copy' ? 'sync' : 'content_copy'} className={cn('mr-2', busy === 'copy' && 'animate-spin')} />
+              {busy === 'copy' ? '복사하는 중...' : '이미지 클립보드 복사'}
             </Button>
             <Button onClick={handleShare} variant="outline" className="w-full rounded-full h-12 text-base bg-white">
               <MaterialIcon name="share" className="mr-2" /> 앱 주소 공유하기
