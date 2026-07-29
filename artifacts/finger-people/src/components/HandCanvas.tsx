@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { useLocation } from 'wouter';
 import { Character } from '@/lib/db';
+import { FINGER_BOX, FINGER_BODY } from './FingerSilhouette';
 import { getContrastColor } from '@/lib/utils';
 
 export interface HandCanvasProps {
@@ -85,6 +86,43 @@ function capsulePath({ tip, base, tipR, baseR }: FingerGeom): string {
   ].join(' ');
 }
 
+/**
+ * Maps the 320 × 480 drawing surface onto a finger of the hand.
+ *
+ * The drawing's finger runs straight down FINGER_BODY; the hand's finger runs
+ * along the tip → base axis at an angle. This returns the SVG transform that
+ * rotates, scales and centres one onto the other so a drawing lands on the
+ * finger it was made on.
+ */
+function drawingTransform({ tip, base, tipR, baseR }: FingerGeom): string {
+  const [tx, ty] = tip;
+  const [bx, by] = base;
+  const len = Math.hypot(bx - tx, by - ty) || 1;
+  const dx = (bx - tx) / len;
+  const dy = (by - ty) / len;
+
+  // Full extent of the capsule along its own axis, caps included.
+  const startX = tx - dx * tipR;
+  const startY = ty - dy * tipR;
+  const endX = bx + dx * baseR;
+  const endY = by + dy * baseR;
+
+  const cx = (startX + endX) / 2;
+  const cy = (startY + endY) / 2;
+  const axisLen = len + tipR + baseR;
+  const width = tipR + baseR;
+
+  // The drawing points down (0,1); rotate that onto (dx,dy).
+  const angle = (Math.atan2(-dx, dy) * 180) / Math.PI;
+
+  const sx = width / FINGER_BODY.w;
+  const sy = axisLen / FINGER_BODY.h;
+  const bodyCx = FINGER_BODY.x + FINGER_BODY.w / 2;
+  const bodyCy = FINGER_BODY.y + FINGER_BODY.h / 2;
+
+  return `translate(${cx} ${cy}) rotate(${angle}) scale(${sx} ${sy}) translate(${-bodyCx} ${-bodyCy})`;
+}
+
 /** Names are shown on the fingertip, so keep them short; full name lives in the tooltip. */
 function shortName(name: string) {
   const chars = Array.from(name.trim());
@@ -110,13 +148,15 @@ function FingerHotspot({ geom, hand, character, interactive }: FingerHotspotProp
 
   const [tx, ty] = geom.tip;
   const path = capsulePath(geom);
+  const drawing = hasChar ? character!.drawingDataUrl : null;
 
   const label = hasChar
     ? `${handLabel} ${geom.name} - ${character!.name}${character!.isCompleted ? ' (완성)' : ' (만드는 중)'}`
     : `${handLabel} ${geom.name} - 비어 있음, 새 인물 만들기`;
 
-  // Fingertip name tag — kept inside the visible box so it is never clipped
-  const display = hasChar ? shortName(character!.name) : '';
+  // A drawing speaks for itself; the tag is the fallback when there is none.
+  const showTag = hasChar && !drawing;
+  const display = showTag ? shortName(character!.name) : '';
   const tagW = Math.max(200, Array.from(display).length * 64 + 56);
   const tagH = 96;
   const tagCx = Math.min(
@@ -124,38 +164,100 @@ function FingerHotspot({ geom, hand, character, interactive }: FingerHotspotProp
     VIEW.x + VIEW.w - tagW / 2 - 8,
   );
 
+  // Keeps hair or a hat that pokes past the silhouette, without letting a wild
+  // scribble smear across the neighbouring fingers.
+  const clipId = `finger-clip-${hand}-${geom.fingerIndex}`;
+  const clipPath = capsulePath({ ...geom, tipR: geom.tipR * 1.35, baseR: geom.baseR * 1.2 });
+
+  const badge = showTag
+    ? { x: tagCx + tagW / 2 - 12, y: ty - tagH / 2 - 4 }
+    : { x: tx + geom.tipR * 0.72, y: ty - geom.tipR * 0.72 };
+
+  const fingerArt = (
+    <>
+      {color && (
+        <path
+          d={path}
+          fill={color}
+          fillOpacity={drawing ? 0.55 : 0.9}
+          stroke="rgba(0,0,0,0.12)"
+          strokeWidth={4}
+          style={{ transition: 'fill 200ms ease' }}
+        />
+      )}
+
+      {/* The child's drawing, mapped onto this finger */}
+      {drawing && (
+        <>
+          <clipPath id={clipId}>
+            <path d={clipPath} />
+          </clipPath>
+          <g clipPath={`url(#${clipId})`}>
+            <image
+              href={drawing}
+              x={0}
+              y={0}
+              width={FINGER_BOX.w}
+              height={FINGER_BOX.h}
+              transform={drawingTransform(geom)}
+              preserveAspectRatio="none"
+            />
+          </g>
+        </>
+      )}
+    </>
+  );
+
+  const nameTag = showTag && (
+    <>
+      <rect
+        x={tagCx - tagW / 2}
+        y={ty - tagH / 2}
+        width={tagW}
+        height={tagH}
+        rx={tagH / 2}
+        fill="#ffffff"
+        fillOpacity={0.94}
+        stroke={color ?? '#d1d5db'}
+        strokeWidth={5}
+      />
+      <text
+        x={tagCx}
+        y={ty}
+        textAnchor="middle"
+        dominantBaseline="central"
+        fontSize={58}
+        fontWeight={700}
+        fill="#1f2937"
+        style={{ pointerEvents: 'none' }}
+      >
+        {display}
+      </text>
+    </>
+  );
+
+  const completedBadge = hasChar && character!.isCompleted && (
+    <g transform={`translate(${badge.x} ${badge.y})`}>
+      <circle r={34} fill={color ?? '#22c55e'} stroke="#ffffff" strokeWidth={6} />
+      <path
+        d="M -14 1 L -4 12 L 15 -11"
+        fill="none"
+        stroke={textColor}
+        strokeWidth={9}
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+    </g>
+  );
+
   const go = () => setLocation(`/character/${id}`);
 
   if (!interactive) {
     return (
       <g aria-hidden="true">
-        {color && <path d={path} fill={color} fillOpacity={0.9} stroke="rgba(0,0,0,0.12)" strokeWidth={4} />}
-        {hasChar && (
-          <>
-            <rect
-              x={tagCx - tagW / 2}
-              y={ty - tagH / 2}
-              width={tagW}
-              height={tagH}
-              rx={tagH / 2}
-              fill="#ffffff"
-              fillOpacity={0.94}
-              stroke={color ?? '#d1d5db'}
-              strokeWidth={5}
-            />
-            <text
-              x={tagCx}
-              y={ty}
-              textAnchor="middle"
-              dominantBaseline="central"
-              fontSize={58}
-              fontWeight={700}
-              fill="#1f2937"
-            >
-              {display}
-            </text>
-          </>
-        )}
+        {fingerArt}
+        {nameTag}
+        {completedBadge}
       </g>
     );
   }
@@ -181,17 +283,7 @@ function FingerHotspot({ geom, hand, character, interactive }: FingerHotspotProp
     >
       <title>{hasChar ? `${handLabel} ${geom.name} · ${character!.name}` : `${handLabel} ${geom.name} · 새 인물 만들기`}</title>
 
-      {/* Assigned colour fills the finger itself — no frame, no outline box */}
-      {color && (
-        <path
-          d={path}
-          fill={color}
-          fillOpacity={0.9}
-          stroke="rgba(0,0,0,0.12)"
-          strokeWidth={4}
-          style={{ transition: 'fill 200ms ease' }}
-        />
-      )}
+      {fingerArt}
 
       {/* Hover / focus indicator: a glow shaped like the finger itself */}
       <path
@@ -232,47 +324,8 @@ function FingerHotspot({ geom, hand, character, interactive }: FingerHotspotProp
         </>
       )}
 
-      {/* Fingertip name tag */}
-      {hasChar && (
-        <>
-          <rect
-            x={tagCx - tagW / 2}
-            y={ty - tagH / 2}
-            width={tagW}
-            height={tagH}
-            rx={tagH / 2}
-            fill="#ffffff"
-            fillOpacity={0.94}
-            stroke={color ?? '#d1d5db'}
-            strokeWidth={5}
-          />
-          <text
-            x={tagCx}
-            y={ty}
-            textAnchor="middle"
-            dominantBaseline="central"
-            fontSize={58}
-            fontWeight={700}
-            fill="#1f2937"
-            style={{ pointerEvents: 'none' }}
-          >
-            {display}
-          </text>
-          {character!.isCompleted && (
-            <g transform={`translate(${tagCx + tagW / 2 - 12} ${ty - tagH / 2 - 4})`}>
-              <circle r={34} fill={color ?? '#22c55e'} stroke="#ffffff" strokeWidth={6} />
-              <path
-                d="M -14 1 L -4 12 L 15 -11"
-                fill="none"
-                stroke={textColor}
-                strokeWidth={9}
-                strokeLinecap="round"
-                strokeLinejoin="round"
-              />
-            </g>
-          )}
-        </>
-      )}
+      {nameTag}
+      {completedBadge}
 
       {/* Invisible hit area — kept last so it always wins the pointer */}
       <path d={path} fill="transparent" stroke="transparent" strokeWidth={40} />

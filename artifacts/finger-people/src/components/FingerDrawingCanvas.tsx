@@ -1,7 +1,11 @@
 import { useRef, useEffect, useState, useCallback } from 'react';
 import { DrawingToolbar } from './DrawingToolbar';
 import { ConfirmDialog } from './ConfirmDialog';
-import { tintColor } from '@/lib/utils';
+import { FingerSilhouette } from './FingerSilhouette';
+import { MaterialIcon } from './MaterialIcon';
+import { Button } from './ui/button';
+import { Sheet, SheetContent, SheetHeader, SheetTitle } from './ui/sheet';
+import { useIsMobile } from '@/hooks/use-mobile';
 
 interface FingerDrawingCanvasProps {
   initialDataUrl: string | null;
@@ -19,6 +23,7 @@ function isBlank(data: ImageData) {
 }
 
 export function FingerDrawingCanvas({ initialDataUrl, baseColor, onSave }: FingerDrawingCanvasProps) {
+  const isMobile = useIsMobile();
   const containerRef = useRef<HTMLDivElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
   
@@ -30,6 +35,7 @@ export function FingerDrawingCanvas({ initialDataUrl, baseColor, onSave }: Finge
   const [historyStep, setHistoryStep] = useState(-1);
   const [isDrawing, setIsDrawing] = useState(false);
   const [clearDialogOpen, setClearDialogOpen] = useState(false);
+  const [toolsOpen, setToolsOpen] = useState(false);
   
   const lastPos = useRef<{x: number, y: number} | null>(null);
 
@@ -188,58 +194,35 @@ export function FingerDrawingCanvas({ initialDataUrl, baseColor, onSave }: Finge
     saveState();
   };
 
+  const canUndo = historyStep > 0;
+  const canRedo = historyStep < history.length - 1;
+
+  const toolbar = (
+    <DrawingToolbar
+      tool={tool} setTool={setTool}
+      color={color} setColor={setColor}
+      lineWidth={lineWidth} setLineWidth={setLineWidth}
+      onUndo={undo} onRedo={redo} onClear={() => setClearDialogOpen(true)}
+      canUndo={canUndo}
+      canRedo={canRedo}
+    />
+  );
+
   return (
-    <div className="flex flex-col gap-4 items-center w-full max-w-sm mx-auto h-full">
-      <div 
+    <div className="flex h-full w-full max-w-sm min-h-0 flex-col items-center gap-4">
+      {/* With the toolbar floating on narrow screens, the canvas takes the whole
+          remaining height instead of being pinned to 480px. */}
+      <div
         ref={containerRef}
-        className="relative w-full aspect-[2/3] max-w-[320px] max-h-[480px] bg-[#F8F4EE] rounded-3xl shadow-sm border border-border overflow-hidden flex-shrink-0"
+        className="relative aspect-[2/3] max-h-[560px] w-auto max-w-full flex-1 min-h-0 overflow-hidden rounded-3xl border border-border bg-[#F8F4EE] shadow-sm md:h-auto md:w-full md:max-w-[320px] md:flex-none"
         style={{ touchAction: 'none' }}
       >
-        {/* Background Finger Silhouette SVG — canvas coords 320×480 */}
-        <svg
-          viewBox="0 0 320 480"
-          xmlns="http://www.w3.org/2000/svg"
+        {/* Background finger silhouette — shared with the card and hand canvas */}
+        <FingerSilhouette
+          baseColor={baseColor}
           className="absolute inset-0 w-full h-full pointer-events-none"
-          preserveAspectRatio="xMidYMid meet"
-        >
-          {/* Finger body */}
-          <path
-            d="M 160 446 C 108 442 86 412 86 366 C 86 290 87 198 100 118 C 110 57 132 36 160 34 C 188 36 210 57 220 118 C 233 198 234 290 234 366 C 234 412 212 442 160 446 Z"
-            fill={tintColor(baseColor)}
-            stroke="#D4A070"
-            strokeWidth="2.5"
-            strokeLinejoin="round"
-            className="transition-colors duration-300"
-          />
-          {/* Upper knuckle */}
-          <path
-            d="M 90 228 Q 160 220 230 228"
-            fill="none"
-            stroke="#C49060"
-            strokeWidth="1.4"
-            strokeLinecap="round"
-            opacity="0.35"
-          />
-          {/* Lower knuckle */}
-          <path
-            d="M 88 338 Q 160 330 232 338"
-            fill="none"
-            stroke="#C49060"
-            strokeWidth="1.4"
-            strokeLinecap="round"
-            opacity="0.35"
-          />
-          {/* Base hint */}
-          <path
-            d="M 88 410 Q 160 418 232 410"
-            fill="none"
-            stroke="#C49060"
-            strokeWidth="1"
-            strokeLinecap="round"
-            opacity="0.25"
-          />
-        </svg>
-        
+        />
+
         {/* Drawing Layer */}
         <canvas
           ref={canvasRef}
@@ -252,15 +235,51 @@ export function FingerDrawingCanvas({ initialDataUrl, baseColor, onSave }: Finge
         />
       </div>
 
-      <DrawingToolbar
-        tool={tool} setTool={setTool}
-        color={color} setColor={setColor}
-        lineWidth={lineWidth} setLineWidth={setLineWidth}
-        onUndo={undo} onRedo={redo} onClear={() => setClearDialogOpen(true)}
-        canUndo={historyStep > 0}
-        canRedo={historyStep < history.length - 1}
-      />
-      
+      {/* Exactly one copy of the toolbar exists at a time — a hidden duplicate
+          would put a second set of colour and width controls in the DOM. */}
+      {!isMobile ? (
+        <div className="w-full">{toolbar}</div>
+      ) : (
+        <>
+          {/* Narrow screens give the whole height to the canvas and reach the
+              tools through a floating button, with undo always one tap away. */}
+          <div className="pointer-events-none fixed inset-x-0 bottom-0 z-30 flex justify-end p-4">
+            <div className="pointer-events-auto flex items-center gap-2">
+              <Button
+                type="button"
+                variant="secondary"
+                size="icon"
+                onClick={undo}
+                disabled={!canUndo}
+                aria-label="실행 취소"
+                className="h-12 w-12 rounded-full border bg-white shadow-lg"
+              >
+                <MaterialIcon name="undo" />
+              </Button>
+              <Button
+                type="button"
+                onClick={() => setToolsOpen(true)}
+                className="h-14 rounded-full pl-5 pr-6 text-base font-bold shadow-xl"
+                aria-label="그림 도구 열기"
+              >
+                <MaterialIcon name="brush" className="mr-2" />
+                그림 도구
+              </Button>
+            </div>
+          </div>
+
+          <Sheet open={toolsOpen} onOpenChange={setToolsOpen}>
+            <SheetContent side="bottom" className="rounded-t-3xl px-4 pb-6 pt-2">
+              <SheetHeader className="py-2">
+                <SheetTitle className="text-base">그림 도구</SheetTitle>
+              </SheetHeader>
+              {toolbar}
+            </SheetContent>
+          </Sheet>
+        </>
+      )}
+
+
       <ConfirmDialog
         isOpen={clearDialogOpen}
         onOpenChange={setClearDialogOpen}
