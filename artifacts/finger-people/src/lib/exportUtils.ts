@@ -31,6 +31,12 @@ export async function copyToClipboard(element: HTMLElement): Promise<boolean> {
   }
 }
 
+async function renderBlob(element: HTMLElement): Promise<Blob> {
+  const dataUrl = await render(element);
+  const response = await fetch(dataUrl);
+  return response.blob();
+}
+
 export async function exportToPdf(element: HTMLElement, filename: string = 'fingerpeople.pdf') {
   const dataUrl = await render(element);
   const pdf = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' });
