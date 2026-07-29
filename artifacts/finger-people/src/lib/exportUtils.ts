@@ -31,6 +31,12 @@ export async function copyToClipboard(element: HTMLElement): Promise<boolean> {
   }
 }
 
+async function renderBlob(element: HTMLElement): Promise<Blob> {
+  const dataUrl = await render(element);
+  const response = await fetch(dataUrl);
+  return response.blob();
+}
+
 export async function exportToPdf(element: HTMLElement, filename: string = 'fingerpeople.pdf') {
   const dataUrl = await render(element);
   const pdf = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' });
@@ -56,26 +62,40 @@ export async function exportToPdf(element: HTMLElement, filename: string = 'fing
   pdf.save(filename);
 }
 
-export type ShareResult = 'shared' | 'copied' | 'unsupported';
+export type ShareResult = 'shared' | 'copied' | 'cancelled' | 'unsupported';
 
 /**
- * All character data lives in this browser's IndexedDB, so a URL cannot carry
- * it. This shares the app address only — callers must say so in their message.
+ * Share the rendered cards themselves instead of the app URL. Character data
+ * lives only in IndexedDB, and putting a drawing data URL in the address would
+ * create an unusably long link. A PNG keeps the share small and portable.
  */
-export async function shareLink(): Promise<ShareResult> {
-  const url = window.location.origin + import.meta.env.BASE_URL;
+export async function shareImage(element: HTMLElement, filename = 'fingerpeople.png'): Promise<ShareResult> {
+  let blob: Blob;
+  try {
+    blob = await renderBlob(element);
+  } catch (error) {
+    console.error('Share rendering failed', error);
+    return 'unsupported';
+  }
 
-  if (navigator.share) {
+  const file = new File([blob], filename, { type: 'image/png' });
+
+  if (navigator.share && navigator.canShare?.({ files: [file] })) {
     try {
-      await navigator.share({ title: '핑거피플', text: '핑거피플로 나만의 인물을 만들어 보세요!', url });
+      await navigator.share({
+        title: '나의 핑거피플',
+        text: '내가 만든 핑거피플 인물 카드예요!',
+        files: [file],
+      });
       return 'shared';
     } catch (error) {
-      // User dismissed the sheet, or sharing is blocked — fall through to copy.
+      if (error instanceof DOMException && error.name === 'AbortError') return 'cancelled';
+      // Sharing may be blocked by the browser; fall through to image copy.
     }
   }
 
   try {
-    await navigator.clipboard.writeText(url);
+    await navigator.clipboard.write([new ClipboardItem({ 'image/png': blob })]);
     return 'copied';
   } catch {
     return 'unsupported';

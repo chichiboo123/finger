@@ -5,7 +5,7 @@ import { Button } from '@/components/ui/button';
 import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group';
 import { CharacterCard } from '@/components/CharacterCard';
 import { HandCanvas } from '@/components/HandCanvas';
-import { copyToClipboard, exportToImage, exportToPdf, shareLink } from '@/lib/exportUtils';
+import { copyToClipboard, exportToImage, exportToPdf, shareImage } from '@/lib/exportUtils';
 import { useToast } from '@/hooks/use-toast';
 import { cn } from '@/lib/utils';
 import { Label } from '@/components/ui/label';
@@ -24,7 +24,7 @@ export default function ExportCenter() {
   const [cardFilter, setCardFilter] = useState<'completed' | 'all'>('completed');
   const [layoutMode, setLayoutMode] = useState<'grid' | 'single'>('grid');
 
-  const [busy, setBusy] = useState<'png' | 'pdf' | 'copy' | null>(null);
+  const [busy, setBusy] = useState<'png' | 'pdf' | 'copy' | 'share' | null>(null);
 
   const previewRef = useRef<HTMLDivElement>(null);
 
@@ -67,14 +67,19 @@ export default function ExportCenter() {
   };
 
   const handleShare = async () => {
-    const res = await shareLink();
+    if (!previewRef.current || busy) return;
+    setBusy('share');
+    const res = await shareImage(previewRef.current, `fingerpeople_${exportType}.png`)
+      .finally(() => setBusy(null));
     if (res === 'copied') {
       toast({
-        title: "앱 주소를 복사했어요",
-        description: "만든 인물은 이 기기에만 저장되니, 친구에게 보낼 때는 이미지나 PDF로 저장해 주세요.",
+        title: "인물 카드를 복사했어요",
+        description: "공유할 앱에 붙여넣으면 현재 카드 이미지가 전달돼요.",
       });
+    } else if (res === 'shared') {
+      toast({ title: '인물 카드 공유 완료!' });
     } else if (res === 'unsupported') {
-      toast({ title: "복사 실패", description: "주소를 복사할 수 없어요.", variant: "destructive" });
+      toast({ title: "공유 실패", description: "이 브라우저에서는 이미지 공유를 지원하지 않아요.", variant: "destructive" });
     }
   };
 
@@ -168,11 +173,12 @@ export default function ExportCenter() {
               <MaterialIcon name={busy === 'copy' ? 'sync' : 'content_copy'} className={cn('mr-2', busy === 'copy' && 'animate-spin')} />
               {busy === 'copy' ? '복사하는 중...' : '이미지 클립보드 복사'}
             </Button>
-            <Button onClick={handleShare} variant="outline" className="w-full rounded-full h-12 text-base bg-white">
-              <MaterialIcon name="share" className="mr-2" /> 앱 주소 공유하기
+            <Button onClick={handleShare} disabled={!!busy} variant="outline" className="w-full rounded-full h-12 text-base bg-white">
+              <MaterialIcon name={busy === 'share' ? 'sync' : 'share'} className={cn('mr-2', busy === 'share' && 'animate-spin')} />
+              {busy === 'share' ? '공유 준비 중...' : '인물 카드 공유하기'}
             </Button>
             <p className="text-xs text-muted-foreground text-center leading-relaxed">
-              만든 인물은 이 기기에만 저장돼요. 다른 사람에게 보여주려면 이미지나 PDF로 저장하세요.
+              공유할 때는 긴 링크 대신 현재 인물 카드 이미지를 바로 전달해요.
             </p>
           </div>
         </div>
