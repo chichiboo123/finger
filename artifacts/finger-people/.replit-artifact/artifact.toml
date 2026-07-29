@@ -1,0 +1,27 @@
+kind = "web"
+previewPath = "/"
+title = "핑거피플"
+version = "1.0.0"
+id = "artifacts/finger-people"
+router = "path"
+
+[[services]]
+name = "web"
+paths = [ "/" ]
+localPort = 24258
+
+[services.development]
+run = "pnpm --filter @workspace/finger-people run dev"
+
+[services.production]
+build = [ "pnpm", "--filter", "@workspace/finger-people", "run", "build" ]
+serve = "static"
+publicDir = "artifacts/finger-people/dist/public"
+
+[[services.production.rewrites]]
+from = "/*"
+to = "/index.html"
+
+[services.env]
+PORT = "24258"
+BASE_PATH = "/"

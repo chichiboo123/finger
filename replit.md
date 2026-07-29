@@ -1,44 +1,54 @@
-# [Project name]
+# 핑거피플 (Finger People)
 
-_Replace the heading above with the project's name, and this line with one sentence describing what this app does for users._
+손가락에서 시작하는 나만의 인물 상상 — 초등학생용 교육 웹앱. 손가락 5~10개에 각각 인물을 만들고, 드로잉하고, 디지털 인물 카드로 완성해 이미지/PDF로 내보내는 앱.
 
 ## Run & Operate
 
-- `pnpm --filter @workspace/api-server run dev` — run the API server (port 5000)
-- `pnpm run typecheck` — full typecheck across all packages
-- `pnpm run build` — typecheck + build all packages
-- `pnpm --filter @workspace/api-spec run codegen` — regenerate API hooks and Zod schemas from the OpenAPI spec
-- `pnpm --filter @workspace/db run push` — push DB schema changes (dev only)
-- Required env: `DATABASE_URL` — Postgres connection string
+- `pnpm --filter @workspace/finger-people run dev` — 핑거피플 앱 실행 (workflow: `artifacts/finger-people: web`)
+- `pnpm --filter @workspace/api-server run dev` — API 서버 실행 (현재 핵심 기능에는 미사용)
+- `pnpm run typecheck` — 전체 타입 검사
 
 ## Stack
 
-- pnpm workspaces, Node.js 24, TypeScript 5.9
-- API: Express 5
-- DB: PostgreSQL + Drizzle ORM
-- Validation: Zod (`zod/v4`), `drizzle-zod`
-- API codegen: Orval (from OpenAPI spec)
-- Build: esbuild (CJS bundle)
+- React + Vite (react-vite artifact at `/`)
+- IndexedDB via `idb` — 모든 인물 데이터 로컬 저장
+- Canvas API + Pointer Events — 손가락 드로잉
+- `html-to-image` + `jspdf` — 이미지/PDF 내보내기
+- `framer-motion` — 애니메이션
+- Pretendard 폰트 + Google Material Symbols (CDN)
+- Tailwind CSS v4 + shadcn/ui
 
 ## Where things live
 
-_Populate as you build — short repo map plus pointers to the source-of-truth file for DB schema, API contracts, theme files, etc._
+- `artifacts/finger-people/src/pages/` — 라우트별 페이지 (home, character-editor, cards, export)
+- `artifacts/finger-people/src/components/` — 재사용 컴포넌트
+- `artifacts/finger-people/src/lib/db.ts` — IndexedDB 스키마 및 헬퍼
+- `artifacts/finger-people/src/lib/useCharacters.ts` — 전역 characters 상태 훅
+- `artifacts/finger-people/src/lib/exportUtils.ts` — 이미지/PDF/클립보드 내보내기 유틸
+- `artifacts/finger-people/index.html` — 폰트·아이콘 CDN 링크 포함
 
 ## Architecture decisions
 
-_Populate as you build — non-obvious choices a reader couldn't infer from the code (3-5 bullets)._
-
-## Product
-
-_Describe the high-level user-facing capabilities of this app once they exist._
+- **No backend**: 모든 데이터를 IndexedDB에 로컬 저장. 로그인 없이 즉시 사용 가능.
+- **Two canvas layers**: 손가락 실루엣(배경, 불변) + 사용자 드로잉(투명 레이어) 분리
+- **Share via file**: 링크 공유는 서버 없이 Web Share API 또는 파일 다운로드 + URL 복사로 대체
+- **Character ID**: `"left-1"` ~ `"left-5"`, `"right-1"` ~ `"right-5"` 형태로 고정
 
 ## User preferences
 
-_Populate as you build — explicit user instructions worth remembering across sessions._
+- 주 사용자: 초등학생 (직관적이고 단순한 UX 우선)
+- 폰트: Pretendard GOV (body), 타이틀용 display 폰트 허용
+- 아이콘: Google Material Symbols Outlined만 사용
+- 이모지 UI 사용 금지
+- KRDS 접근성 가이드라인 준수
+- 푸터: "Created by. 교육뮤지컬 꿈꾸는 치수쌤" → https://litt.ly/chichiboo
 
 ## Gotchas
 
-_Populate as you build — sharp edges, "always run X before Y" rules._
+- `index.css`의 모든 CSS 변수는 HSL 공백구분 형식 (예: `248 80% 60%`). `hsl()` 래퍼 없음.
+- `index.html`에 폰트·Material Symbols CDN `<link>` 태그 있어야 함.
+- idb, html-to-image, jspdf는 `dependencies`에 설치됨 (devDependencies 아님).
+- PointerEvents에서 setPointerCapture/releasePointerCapture 사용 시 `(e.target as Element)` 캐스팅 필요.
 
 ## Pointers
 
