@@ -57,6 +57,8 @@
 - `vite build`/`vite dev`는 `PORT`, `BASE_PATH` 환경변수가 있어야 config가 로드된다.
 - `FingerDrawingCanvas`는 캐릭터가 바뀔 때 `key={charData.id}`로 리마운트해야 앞 인물의 그림이 남지 않는다.
 - 편집기의 모바일/데스크톱 레이아웃은 CSS(`hidden md:flex`)가 아니라 `useIsMobile()`로 **하나만** 렌더한다. 둘 다 렌더하면 드로잉 캔버스가 2개 마운트돼 플로팅 버튼이 두 번 뜨고 undo 스택이 충돌한다.
+- 내보내기(`exportUtils.render`)는 (1) 서브트리의 모든 `<img>` 로드·decode 대기, (2) 이미지가 있으면 버리는 warm-up 렌더 1회를 **반드시** 유지해야 한다. 둘 중 하나라도 빼면 일부 기기(iOS/WebKit 계열, 일부 안드로이드 WebView)에서 `<foreignObject>` 안의 드로잉이 누락된 채 저장된다. 속도 때문에 지우지 말 것 — 대기 시간은 `ExportProgressOverlay`로 보여준다.
+- 내보내기 `pixelRatio`는 요소 크기에 따라 자동으로 낮춘다(iOS 캔버스 한계 4096px/16.7MP). 고정 2로 되돌리면 카드 10장 출력이 빈 이미지로 나올 수 있다.
 - 이미지·정적 자산은 절대경로(`/foo.png`) 금지. 서브패스 배포에서 404가 난다. `import.meta.env.BASE_URL`를 붙일 것.
 
 ## Pointers
