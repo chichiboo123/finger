@@ -5,7 +5,8 @@ import { Button } from '@/components/ui/button';
 import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group';
 import { CharacterCard } from '@/components/CharacterCard';
 import { HandCanvas } from '@/components/HandCanvas';
-import { copyToClipboard, exportToImage, exportToPdf } from '@/lib/exportUtils';
+import { copyToClipboard, exportToImage, exportToPdf, ExportProgress } from '@/lib/exportUtils';
+import { ExportProgressOverlay } from '@/components/ExportProgressOverlay';
 import { useToast } from '@/hooks/use-toast';
 import { cn } from '@/lib/utils';
 import { Label } from '@/components/ui/label';
@@ -25,6 +26,7 @@ export default function ExportCenter() {
   const [layoutMode, setLayoutMode] = useState<'grid' | 'single'>('grid');
 
   const [busy, setBusy] = useState<'png' | 'pdf' | 'copy' | null>(null);
+  const [progress, setProgress] = useState<ExportProgress | null>(null);
 
   const previewRef = useRef<HTMLDivElement>(null);
 
@@ -40,12 +42,13 @@ export default function ExportCenter() {
     if (!previewRef.current || busy) return;
 
     setBusy(format);
+    setProgress(null);
     try {
       if (format === 'png') {
-        await exportToImage(previewRef.current, `fingerpeople_${exportType}.png`);
+        await exportToImage(previewRef.current, `fingerpeople_${exportType}.png`, setProgress);
         toast({ title: "이미지 저장 완료!" });
       } else {
-        await exportToPdf(previewRef.current, `fingerpeople_${exportType}.pdf`);
+        await exportToPdf(previewRef.current, `fingerpeople_${exportType}.pdf`, setProgress);
         toast({ title: "PDF 저장 완료!" });
       }
     } catch (error) {
@@ -53,14 +56,17 @@ export default function ExportCenter() {
       toast({ title: "저장 실패", description: "저장 중 문제가 발생했습니다.", variant: "destructive" });
     } finally {
       setBusy(null);
+      setProgress(null);
     }
   };
 
   const handleCopyImage = async () => {
     if (!previewRef.current || busy) return;
     setBusy('copy');
-    const copied = await copyToClipboard(previewRef.current);
+    setProgress(null);
+    const copied = await copyToClipboard(previewRef.current, setProgress);
     setBusy(null);
+    setProgress(null);
     toast(copied
       ? { title: '이미지를 클립보드에 복사했어요!' }
       : { title: '복사 실패', description: '이 브라우저에서는 이미지 복사를 지원하지 않아요.', variant: 'destructive' });
@@ -227,6 +233,12 @@ export default function ExportCenter() {
         </div>
 
       </div>
+
+      <ExportProgressOverlay
+        open={!!busy}
+        title={busy === 'copy' ? '복사 중입니다' : busy === 'pdf' ? 'PDF 저장 중입니다' : '이미지 저장 중입니다'}
+        progress={progress}
+      />
     </div>
   );
 }

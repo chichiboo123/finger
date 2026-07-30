@@ -6,7 +6,8 @@ import { Button } from '@/components/ui/button';
 import { Link, useLocation } from 'wouter';
 import { ConfirmDialog } from '@/components/ConfirmDialog';
 import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group';
-import { exportToImage, copyToClipboard } from '@/lib/exportUtils';
+import { exportToImage, copyToClipboard, ExportProgress } from '@/lib/exportUtils';
+import { ExportProgressOverlay } from '@/components/ExportProgressOverlay';
 import { useToast } from '@/hooks/use-toast';
 import { cn } from '@/lib/utils';
 import { Character } from '@/lib/db';
@@ -23,6 +24,11 @@ export default function Cards() {
   
   const [deleteId, setDeleteId] = useState<string | null>(null);
 
+  // One export at a time: a second tap while rendering only slows the first one
+  // down and looks like nothing happened.
+  const [exporting, setExporting] = useState<{ id: string; kind: 'download' | 'copy' } | null>(null);
+  const [progress, setProgress] = useState<ExportProgress | null>(null);
+
   const displayCharacters = useMemo(() => {
     let list = characters;
     if (filter === 'completed') {
@@ -34,25 +40,46 @@ export default function Cards() {
 
   const handleDownload = async (char: Character) => {
     const el = document.getElementById(`card-${char.id}`);
-    if (el) {
-      await exportToImage(el, `fingerpeople_${char.name}.png`);
+    if (!el || exporting) return;
+
+    setExporting({ id: char.id, kind: 'download' });
+    setProgress(null);
+    try {
+      await exportToImage(el, `fingerpeople_${char.name || '인물'}.png`, setProgress);
       toast({ title: "다운로드 완료!", description: "카드가 이미지로 저장되었습니다." });
+    } catch (error) {
+      console.error('Card image export failed', error);
+      toast({
+        title: "저장 실패",
+        description: "이미지를 만드는 중 문제가 생겼어요. 잠시 후 다시 시도해 주세요.",
+        variant: "destructive"
+      });
+    } finally {
+      setExporting(null);
+      setProgress(null);
     }
   };
 
   const handleCopy = async (char: Character) => {
     const el = document.getElementById(`card-${char.id}`);
-    if (el) {
-      const success = await copyToClipboard(el);
+    if (!el || exporting) return;
+
+    setExporting({ id: char.id, kind: 'copy' });
+    setProgress(null);
+    try {
+      const success = await copyToClipboard(el, setProgress);
       if (success) {
         toast({ title: "복사 완료!", description: "이미지를 클립보드에 복사했습니다." });
       } else {
-        toast({ 
-          title: "복사 실패", 
+        toast({
+          title: "복사 실패",
           description: "이 브라우저에서는 이미지 복사를 사용할 수 없어요. 대신 이미지 파일로 저장해 주세요.",
           variant: "destructive"
         });
       }
+    } finally {
+      setExporting(null);
+      setProgress(null);
     }
   };
 
@@ -63,6 +90,9 @@ export default function Cards() {
       toast({ title: "삭제 완료", description: "인물이 삭제되었습니다." });
     }
   };
+
+  const isBusy = (id: string, kind: 'download' | 'copy') =>
+    exporting?.id === id && exporting.kind === kind;
 
   const safeIndex = Math.min(singleIndex, Math.max(0, displayCharacters.length - 1));
   const current = displayCharacters[safeIndex];
@@ -165,25 +195,36 @@ export default function Cards() {
                       variant="outline"
                       size="icon"
                       className="h-10 w-10 rounded-full"
-                      aria-label={`${char.name} 카드 이미지로 저장`}
+                      aria-label={isBusy(char.id, 'download') ? `${char.name} 카드 다운로드 중` : `${char.name} 카드 이미지로 저장`}
+                      disabled={!!exporting}
+                      aria-busy={isBusy(char.id, 'download')}
                       onClick={() => handleDownload(char)}
                     >
-                      <MaterialIcon name="download" className="text-[18px]" />
+                      <MaterialIcon
+                        name={isBusy(char.id, 'download') ? 'sync' : 'download'}
+                        className={cn('text-[18px]', isBusy(char.id, 'download') && 'animate-spin')}
+                      />
                     </Button>
                     <Button
                       variant="outline"
                       size="icon"
                       className="h-10 w-10 rounded-full"
                       aria-label={`${char.name} 카드 복사`}
+                      disabled={!!exporting}
+                      aria-busy={isBusy(char.id, 'copy')}
                       onClick={() => handleCopy(char)}
                     >
-                      <MaterialIcon name="content_copy" className="text-[18px]" />
+                      <MaterialIcon
+                        name={isBusy(char.id, 'copy') ? 'sync' : 'content_copy'}
+                        className={cn('text-[18px]', isBusy(char.id, 'copy') && 'animate-spin')}
+                      />
                     </Button>
                     <Button
                       variant="outline"
                       size="icon"
                       className="h-10 w-10 rounded-full text-destructive hover:bg-destructive/10 hover:text-destructive"
                       aria-label={`${char.name} 삭제`}
+                      disabled={!!exporting}
                       onClick={() => setDeleteId(char.id)}
                     >
                       <MaterialIcon name="delete" className="text-[18px]" />
@@ -217,13 +258,33 @@ export default function Cards() {
                     <Button variant="outline" className="rounded-full" onClick={() => setLocation(`/character/${current.id}`)}>
                       <MaterialIcon name="edit" className="mr-2" /> 수정
                     </Button>
-                    <Button variant="outline" className="rounded-full" onClick={() => handleDownload(current)}>
-                      <MaterialIcon name="download" className="mr-2" /> 저장
+                    <Button
+                      variant="outline"
+                      className="rounded-full"
+                      disabled={!!exporting}
+                      aria-busy={isBusy(current.id, 'download')}
+                      onClick={() => handleDownload(current)}
+                    >
+                      <MaterialIcon
+                        name={isBusy(current.id, 'download') ? 'sync' : 'download'}
+                        className={cn('mr-2', isBusy(current.id, 'download') && 'animate-spin')}
+                      />
+                      {isBusy(current.id, 'download') ? '저장 중...' : '저장'}
                     </Button>
-                    <Button variant="outline" className="rounded-full" onClick={() => handleCopy(current)}>
-                      <MaterialIcon name="content_copy" className="mr-2" /> 복사
+                    <Button
+                      variant="outline"
+                      className="rounded-full"
+                      disabled={!!exporting}
+                      aria-busy={isBusy(current.id, 'copy')}
+                      onClick={() => handleCopy(current)}
+                    >
+                      <MaterialIcon
+                        name={isBusy(current.id, 'copy') ? 'sync' : 'content_copy'}
+                        className={cn('mr-2', isBusy(current.id, 'copy') && 'animate-spin')}
+                      />
+                      {isBusy(current.id, 'copy') ? '복사 중...' : '복사'}
                     </Button>
-                    <Button variant="outline" className="rounded-full" onClick={() => setDeleteId(current.id)}>
+                    <Button variant="outline" className="rounded-full" disabled={!!exporting} onClick={() => setDeleteId(current.id)}>
                       <MaterialIcon name="delete" className="mr-2 text-destructive" /> 삭제
                     </Button>
                   </div>
@@ -253,7 +314,13 @@ export default function Cards() {
         </>
       )}
 
-      <ConfirmDialog 
+      <ExportProgressOverlay
+        open={!!exporting}
+        title={exporting?.kind === 'copy' ? '복사 중입니다' : '다운로드 중입니다'}
+        progress={progress}
+      />
+
+      <ConfirmDialog
         isOpen={!!deleteId}
         onOpenChange={(v) => !v && setDeleteId(null)}
         title="인물 삭제"
