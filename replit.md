@@ -36,7 +36,7 @@
 - **Shared character store**: `useCharacters`는 모듈 레벨 스토어 + `useSyncExternalStore`. 헤더·홈·편집기가 같은 목록을 본다
 - **Finger hotspots**: `HandCanvas`는 손 PNG와 히트영역을 하나의 SVG(`viewBox`) 안에 넣어 좌표계를 공유. 손가락마다 실루엣을 스캔해 맞춘 tapered capsule 경로를 쓰므로 틀(프레임) 없이 손가락 모양 그대로 강조·채색된다
 - **One drawing, three places**: `FingerSilhouette`(320×480)가 그리기 화면·인물 카드·완성 다이얼로그의 공통 원본. `HandCanvas`는 `drawingTransform()`으로 이 박스를 손가락 축에 회전·스케일해 얹으므로, 아이가 그린 그림이 어디서나 같은 손가락 위에 보인다
-- **Deploy**: `.github/workflows/deploy.yml`이 main 푸시마다 GitHub Pages로 배포. `BASE_PATH`는 리포 이름 기준(`/finger/`)이며 SPA 딥링크용으로 `index.html`을 `404.html`로 복사한다
+- **Deploy**: `.github/workflows/deploy.yml`이 main 푸시마다 GitHub Pages로 배포. 커스텀 도메인(`finger.chichiboo.link`, `artifacts/finger-people/public/CNAME`)에서 루트로 서빙되므로 `BASE_PATH`는 `/`. SPA 딥링크용으로 `index.html`을 `404.html`로 복사한다
 
 ## User preferences
 
